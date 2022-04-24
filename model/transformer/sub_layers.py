@@ -17,7 +17,7 @@ class FeedForward():
             in_dims (int): denotes the input size \\
             out_dims (int): denotes the output size\\
 
-        NOTE: This is applied to each position separately and identically (What does this mean, exactly, Look in implementation code for this "https://github.com/ming024/FastSpeech2")
+        NOTE: This is applied to each position separately and identically (What does this mean, exactly, Look in implementation code for this "https://github.com/ming024/FastSpeech2" )
         """
         self.in_dims = in_dims
         self.out_dims = out_dims
