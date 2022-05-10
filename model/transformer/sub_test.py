@@ -167,6 +167,29 @@ def unit_test_forward_shape_Decoder():
     assert x.shape ==  out.shape, "unit_test_forward_shape_Decoder doesnt perserve shape"
 
 
+def unit_test_forward_shape_Decoder():
+    from transformer_parts import Decoder
+    import yaml
+    with open("D:/Andreas/02466-Bachelor-AI-project/config/model.yaml") as f:
+        d = yaml.load(f,Loader=yaml.FullLoader)
+
+    c_dict = d["transformer"]
+
+    d_model = c_dict["d_model"]
+    batch_size = c_dict["batch_size"]
+    seq_len = c_dict["seq_len"]
+    N_layers = c_dict["N_layers"]
+
+    decoder = Decoder(N_layers, config = c_dict)
+    x = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
+
+    mas = [False]*(batch_size-5)+[True]*5
+    mask = torch.tensor(mas).view(batch_size,1,1)
+
+    out = decoder(x, mask=mask, VA_k = x, VA_v = x)
+    assert x.shape ==  out.shape, "unit_test_forward_shape_Decoder doesnt perserve shape"
+
+
 #### runs:
 
 def gotta_catch_them_all__errors__():

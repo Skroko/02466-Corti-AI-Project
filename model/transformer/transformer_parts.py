@@ -68,29 +68,40 @@ class PostNet(nn.Module):
 
         layer_sizes = [n_mel_channels] + [d_model for _ in range(n_conv_layers-1)] + [n_mel_channels]
         
-        self.conv_layers = nn.ModuleList([nn.Conv1d(
-                                in_channels = layer_sizes[i],
-                                out_channels= layer_sizes[i+1],
-                                kernel_size = kernel_size,
-                                padding = int((kernel_size-1)/2)
-                                ) 
-                        for i in range(n_conv_layers)])
 
-        self.act_fnc = nn.ReLU
+        #  The below adds conv1d layers and barchnorm layers to a list. These are then pulled out in forward, as to do conv1d and batchnorm with the correct sizes in the correct order
+        self.conv_layers =  nn.ModuleList([
+                                nn.Sequential(
+                                    
+                                    nn.Conv1d(
+                                    in_channels = layer_sizes[i],
+                                    out_channels= layer_sizes[i+1],
+                                    kernel_size = kernel_size,
+                                    stride = 1,
+                                    padding = int((kernel_size-1)/2)),
+
+                                    nn.BatchNorm1d(layer_sizes[i+1])
+                                ) 
+                            for i in range(n_conv_layers)])
+
+        self.act_fnc = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
-        self.batch_norm = nn.BatchNorm1d(n_mel_channels)
 
     def forward(self, x: Tensor) -> Tensor:
 
-        # x = x.contiguous().transpose(1, 2)
+        # Transpose as we want to do convolution on the embedding, not on the sequence
+        x = x.contiguous().transpose(1, 2) 
 
-        for conv in self.conv_layers:
+        for conv,batch_norm in self.conv_layers:
+            print(x)
             x = conv(x)
             x = self.act_fnc(x)
             x = self.dropout(x)
-            x = self.batch_norm(x)
+            x = batch_norm(x)
 
-        # x = x.contiguous().transpose(1, 2)
+        # transpose back into correct shape
+        x = x.contiguous().transpose(1, 2)
+ 
         return x
 
 if __name__ == "__main__":
@@ -106,20 +117,16 @@ if __name__ == "__main__":
     seq_len = c_dict["seq_len"]
 
 
-    mod = Encoder(N_layers=2, config = c_dict)
+    mod = Encoder(N_layers=2, config = c_dict).double()
+    pn = PostNet(d_model = d_model, kernel_size = 3, n_mel_channels = d_model, n_conv_layers = 3, dropout = 0.1).double()
 
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.double).view(batch_size,seq_len,d_model)
-    # mas = [False]*(batch_size-5)+[True]*5
-    # mask = torch.tensor(mas).view(batch_size,1,1)
 
     y = mod(x = x)
     e = pos_encoding(max_seq_len = seq_len, d_model = d_model, shift = False)
     ee = e.unsqueeze(0).repeat(batch_size,1,1)
 
     eee = ee+y
- 
-    pn = PostNet(d_model = d_model, kernel_size = 5, n_mel_channels = seq_len, n_conv_layers = 5, dropout = 0.1)
-    
     eeee = pn(eee)
 
     print(eeee.shape)
