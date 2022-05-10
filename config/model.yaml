@@ -1,0 +1,14 @@
+model:
+  transformer:
+    encoder:
+      hidden: 
+        256
+  
+  variance-predictor:
+    out-channels: 
+      256
+    kernel:
+      3
+    dropout:
+      0.5
+      
