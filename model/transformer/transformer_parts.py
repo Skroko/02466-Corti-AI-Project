@@ -1,10 +1,11 @@
-from ast import Import
 import torch
 from torch import nn
 from torch import Tensor
 import numpy as np
 
 from module import B_CoderModule
+from utils.mask_embedding import get_mask_from_lengths
+# from utils.device import device
 
 class Encoder(nn.Module):
     def __init__(self, N_layers: int, config:dict) -> None:
@@ -12,9 +13,9 @@ class Encoder(nn.Module):
 
         self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, config = config) for _ in range(N_layers)])
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, mask: Tensor) -> Tensor:
         for layer in self.layers:
-            x = layer(x,x,x) # XD this is what ming024 does XD
+            x = layer(x,x,x, mask = mask) 
 
         return x
 
