@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 # classes and function from other files:
-from sub_layers import PosFeedForward_AddNorm, MultiHeadAttention_AddNorm
+from .sub_layers import PosFeedForward_AddNorm, MultiHeadAttention_AddNorm
 
 
 class B_CoderModule(nn.Module):

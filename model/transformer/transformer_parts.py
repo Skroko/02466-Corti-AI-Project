@@ -3,7 +3,7 @@ from torch import nn
 from torch import Tensor
 import numpy as np
 
-from module import B_CoderModule
+from .module import B_CoderModule
 from utils.mask_embedding import get_mask_from_lengths
 # from utils.device import device
 

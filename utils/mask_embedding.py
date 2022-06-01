@@ -1,5 +1,5 @@
 import torch
-from device import device
+from .device import device
 
 def get_mask_from_lengths(lengths, max_len=None):
     """
