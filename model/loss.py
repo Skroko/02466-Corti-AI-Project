@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 
-class loss_class():
+class LossHandler():
 
     def __init__(self) -> None:
         """
@@ -18,7 +18,7 @@ class loss_class():
         # add masks here?
             # No cause the same loss use different mask depending on usecase
 
-    def mask_it(self, input_to_be_masked: Tensor, mask: Tensor) -> Tensor:
+    def masked_select(self, input_to_be_masked: Tensor, mask: Tensor) -> Tensor:
         """
         Input:\n
             input_to_be_masked (Tensor): The input that will be masked\n
@@ -27,8 +27,6 @@ class loss_class():
 
         Mask application:\n
             The mask removes all indexes (i) where mask[i] == False, and keeps indexes with mask[i] == True
-
-
         """
         if mask is None:
             return input_to_be_masked
@@ -44,7 +42,7 @@ class loss_class():
         After the 
         """
         
-        VA_loss = torch.nn.functional.mse_loss(self.mask_it(predicted_values, mask),self.mask_it(true_values, mask))
+        VA_loss = torch.nn.functional.mse_loss(self.masked_select(predicted_values, mask),self.masked_select(true_values, mask))
         return VA_loss
 
     def net_loss(self, predicted_values: Tensor, true_values: Tensor, mask: Tensor = None) -> Tensor:
@@ -52,7 +50,7 @@ class loss_class():
         Used for transformer loss and postnet loss\n
         Returns the MAE loss between the predicted values and the true values (as calculated in preprocessing)
         """
-        loss = torch.nn.functional.l1_loss(self.mask_it(predicted_values, mask),self.mask_it(true_values, mask), reduction = "mean")
+        loss = torch.nn.functional.l1_loss(self.masked_select(predicted_values, mask),self.masked_select(true_values, mask), reduction = "mean")
         return loss
 
 
@@ -79,9 +77,10 @@ class loss_class():
         transformer_mel_loss = self.net_loss(transformer_mel_predictions,mel_targets,mel_masks)
         postnet_mel_loss = self.net_loss(postnet_mel_predictions,mel_targets,mel_masks)
 
-
         return VA_computed_losses, transformer_mel_loss, postnet_mel_loss
-        
+
+          
+
 if __name__ == "__main__":
 
     loss_clas = loss_class()

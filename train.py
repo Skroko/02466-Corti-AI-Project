@@ -15,6 +15,7 @@ from data.dataset import Dataset
 # Change these two
 from evaluate import evaluate
 from model import FastSpeech2Loss
+from model.loss import LossHandler
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -55,7 +56,7 @@ def main(args, configs):
 
     # Initialize our own loss here.
     #Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
-    raise NotImplementedError('Loss')
+    loss_handler = LossHandler()
     print("Number of FastSpeech2 Parameters:", num_param)
 
     # Load vocoder
@@ -101,12 +102,12 @@ def main(args, configs):
                 batch = to_device(batch, device)
 
                 # Forward
+                # TODO: add explicit variable names for batch unpacking (*(batch[2:]))
                 output = model(*(batch[2:]))
 
                 # Cal Loss
-
-                losses = Loss(batch, output)
-                total_loss = losses[0]
+                losses = loss_handler.get_losses(batch, output)
+                total_loss = sum(losses)
                 print(f"Total loss size: {total_loss}")
 
                 # Backward
