@@ -68,7 +68,7 @@ class FastSpeech2(nn.Module):
         if VA_true_vals is not None:
             return mel, VA_out_retain
             
-        return mel
+        return mel # TODO add more outputs for each individuel part
 
 if __name__ == "__main__":
     import yaml
