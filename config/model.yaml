@@ -16,9 +16,9 @@ model:
 
 transformer:
   d_model:
-    2
+    12
   hidden_dim:
-    2
+    4
   act_fnc:
     nn.ReLU
   dropout:
@@ -30,8 +30,14 @@ transformer:
   d_v:
     2
   batch_size:
-    2
+    3
   seq_len:
-    2
+    4
   N_layers:
     2
+
+postnet:
+  kernel_size:
+    3
+  n_mel_channels:
+    15
