@@ -42,15 +42,12 @@ class FastSpeech2(nn.Module):
 
         # Generate positional encoding
         input_pos_enc = input_enc#pos_encoding(input_enc,self.d_model)
-        print(input_enc.shape)
 
         # Pass through encoder
         encoder_out = self.encoder.forward(input_pos_enc, src_masks)
-        print(encoder_out.shape)
 
         # Pass through VA
         VA_out = encoder_out #self.VA.forward(encoder_out, mel_masks)
-        print(VA_out.shape)
 
         if VA_true_vals is not None:
             VA_out_retain = VA_out
@@ -58,15 +55,12 @@ class FastSpeech2(nn.Module):
 
         # Pass through decoder
         decoder_out = self.decoder.forward(VA_out, mel_masks)
-        print(decoder_out.shape)
 
         # lin layer to mel dims
         mel_lin_out = self.mel_lin.forward(decoder_out)
-        print(mel_lin_out.shape)
 
         # Pass through postnet
         mel = self.postnet.forward(mel_lin_out) + mel_lin_out
-        print(mel.shape)
 
         if VA_true_vals is not None:
             return mel, VA_out_retain

@@ -13,7 +13,7 @@ from utils.tools import to_device, log, synth_one_sample
 from data.dataset import Dataset
 
 # Change these two
-from evaluate import evaluate
+from utils.evaluation import evaluate
 from model import FastSpeech2Loss
 from model.loss import LossHandler
 
@@ -176,6 +176,8 @@ def main(args, configs):
                 # Write a loss loop for validation data 
                 if step % val_step == 0:
                     model.eval()
+
+                    # Remove?? (andreas), replace with model(data) -> loss(out,target) -> log
                     message = evaluate(model, step, configs, val_logger, vocoder)
                     with open(os.path.join(val_log_path, "log.txt"), "a") as f:
                         f.write(message + "\n")
