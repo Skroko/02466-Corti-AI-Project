@@ -36,9 +36,6 @@ class FastSpeech2(nn.Module):
     
     def forward(self, input_enc: Tensor, VA_true_vals: Tensor = None) -> Tensor:
 
-        # config values:
-        # a,b,c,d = config
-
         # generate masks (for input and output)
         src_masks = None # get_mask_from_lengths(src_lens, max_src_len)
         mel_masks = None # get_mask_from_lengths(mel_lens, max_mel_len) if mel_lens is not None else None
