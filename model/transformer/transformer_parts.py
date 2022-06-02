@@ -4,7 +4,6 @@ from torch import Tensor
 import numpy as np
 
 from .module import B_CoderModule
-from utils.mask_embedding import get_mask_from_lengths
 # from utils.device import device
 
 class Encoder(nn.Module):
@@ -94,7 +93,6 @@ class PostNet(nn.Module):
         x = x.contiguous().transpose(1, 2) 
 
         for conv,batch_norm in self.conv_layers:
-            print(x)
             x = conv(x)
             x = self.act_fnc(x)
             x = self.dropout(x)
