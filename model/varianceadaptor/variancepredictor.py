@@ -1,5 +1,3 @@
-
-from turtle import forward
 from torch import nn 
 
 class VariancePredictor(nn.Module):
@@ -53,8 +51,11 @@ class VariancePredictor(nn.Module):
             E = Embedding Dimension
         """
         x = self.block_1(_x) 
+        # TODO: mask here? Probably requires a mask transformation
         x = self.block_2(x)
+        # TODO: mask here? Probably requires a mask transformation
         x = self.lin(x)
+        x.masked_fill(mask, 0)
 
         return x 
 
@@ -65,7 +66,7 @@ class Conv1DT(nn.Module):
 
         self.conv1d = nn.Conv1d(in_channels, out_channels, kernel_size, stride, padding)
 
-    
+
     def forward(self, x):
         x = x.transpose(1,2).contiguous()
         x = self.conv1d(x) 
