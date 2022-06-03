@@ -10,15 +10,18 @@ from tqdm import tqdm
 # write our own functionality for the get_model
 from utils.model import get_model, get_vocoder, get_param_num
 from utils.tools import to_device, log, synth_one_sample
+from utils.optimizer import load_optimizer, save_optimizer
 from data.dataset import Dataset
 
 # Change these two
-from utils.evaluation import evaluate
-from model import FastSpeech2Loss
+
+# from utils.evaluation import evaluate # I created a monster
+# from model import FastSpeech2Loss
+
 from model.loss import LossHandler
+from model.fastspeech2 import FastSpeech2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def main(args, configs):
     print("Prepare training ...")
@@ -43,43 +46,63 @@ def main(args, configs):
     #### C
 
 
-    # Prepare model
+    ## Prepare model
     #model, optimizer = get_model(args, configs, device, train=True)
-    model, optimizer = get_model(), get_optimizer()
-
+    model = get_model()
 
     # I don't think we should use this.
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
 
     # I guess we can do this.
     num_param = get_param_num(model)
-
-    # Initialize our own loss here.
-    #Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
-    loss_handler = LossHandler()
     print("Number of FastSpeech2 Parameters:", num_param)
 
-    # Load vocoder
+    ## prepare optimizer
+    learning_rate = 1e-3 # TODO add to optimizer config
+    betas = train_config["optimizer"]["betas"]
+    epsilon = train_config["optimizer"]["eps"]
+    weight_decay = train_config["optimizer"]["weight_decay"]
+
+    optimizer = torch.optim.Adam(   params = model.parameters(),
+                                    lr = learning_rate,
+                                    betas=betas,
+                                    eps=epsilon,
+                                    weight_decay=weight_decay)
+
+
+
+    ## Initialize our own loss here.
+    loss_handler = LossHandler()
+        #Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
+
+    ## Load vocoder
     vocoder = get_vocoder(model_config, device)
 
 
-    # Remove?
-    # Init logger
-    for p in train_config["path"].values():
-        os.makedirs(p, exist_ok=True)
-    train_log_path = os.path.join(train_config["path"]["log_path"], "train")
-    val_log_path = os.path.join(train_config["path"]["log_path"], "val")
-    os.makedirs(train_log_path, exist_ok=True)
-    os.makedirs(val_log_path, exist_ok=True)
-    train_logger = SummaryWriter(train_log_path)
-    val_logger = SummaryWriter(val_log_path)
+    ## Initialize loggers
+    from utils.logger import logger
+
+    # change load_path if one is wanted
+    train_logger = logger(load_path = None)
+    validation_logger = logger(load_path = None)
+
+        # Remove?
+        # Init logger
+        # for p in train_config["path"].values():
+        #     os.makedirs(p, exist_ok=True)
+        # train_log_path = os.path.join(train_config["path"]["log_path"], "train")
+        # val_log_path = os.path.join(train_config["path"]["log_path"], "val")
+        # os.makedirs(train_log_path, exist_ok=True)
+        # os.makedirs(val_log_path, exist_ok=True)
+        # train_logger = SummaryWriter(train_log_path)
+        # val_logger = SummaryWriter(val_log_path)
 
 
     #### C
-    # Training
+    ## Training
     step = args.restore_step + 1
     epoch = 1
-    grad_acc_step = train_config["optimizer"]["grad_acc_step"]
+    grad_accumu_step = train_config["optimizer"]["grad_acc_step"]
     grad_clip_thresh = train_config["optimizer"]["grad_clip_thresh"]
     total_step = train_config["step"]["total_step"]
     log_step = train_config["step"]["log_step"]
@@ -88,61 +111,77 @@ def main(args, configs):
     val_step = train_config["step"]["val_step"]
     #### C
 
-    # Remove?
+    ## TDQM (% bar) initialization
     if args.local:
         outer_bar = tqdm(total=total_step, desc="Training", position=0)
         outer_bar.n = args.restore_step
         outer_bar.update()
 
+    ## Training loop
     while True:
-        # Remove?
-        #inner_bar = tqdm(total=len(loader), desc="Epoch {}".format(epoch), position=1)
+        
+        if args.local:
+            # adds tdqm bar if we are running it locally
+            inner_bar = tqdm(total=len(loader), desc="Epoch {}".format(epoch), position=1)
+   
         for batchs in loader:
             for batch in batchs:
                 batch = to_device(batch, device)
 
-                # Forward
+                ## Forward
                 # TODO: add explicit variable names for batch unpacking (*(batch[2:]))
                 output = model(*(batch[2:]))
 
-                # Cal Loss
+                ## Calculate Loss
                 losses = loss_handler.get_losses(batch, output)
                 total_loss = sum(losses)
                 print(f"Total loss size: {total_loss}")
 
-                # Backward
-                total_loss = total_loss / grad_acc_step
+                ## Backward pass with
+                total_loss = total_loss / grad_accumu_step # just set lower learning rate??
                 total_loss.backward()
                 
+                ## clipping to avoid sudden model changes (gradient explotions)
+                # nn.utils.clip_grad_norm_(model.parameters(), grad_clip_thresh)
+                # ## Update params
+                # optimizer.step()
+                # optimizer.zero_grad()
 
-                # Read about gradient clipping.
-                if step % grad_acc_step == 0:
-                    # Clipping gradients to avoid gradient explosion
+                ## Update every grad_acc_step step
+                if step % grad_accumu_step == 0:
+                    ## Clipping gradients to avoid gradient explosion
                     nn.utils.clip_grad_norm_(model.parameters(), grad_clip_thresh)
 
-                    # Update weights
+                    ## Update weights
                     optimizer.step_and_update_lr()
                     optimizer.zero_grad()
 
+                ############################# Andreas went to this points ###########################################
 
                 # Rewrite this section to log and produce graphs as we want
                     # loss graphs
                 if step % log_step == 0:
-                    losses = [l.item() for l in losses]
-                    message1 = "Step {}/{}, ".format(step, total_step)
-                    message2 = "Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Pitch Loss: {:.4f}, Energy Loss: {:.4f}, Duration Loss: {:.4f}".format(
-                        *losses
-                    )
+                    losses = [l.item() for l in losses] # check format of the tensor losses (can we jsut do .to_list()???)
 
-                    with open(os.path.join(train_log_path, "log.txt"), "a") as f:
-                        f.write(message1 + message2 + "\n")
 
-                    outer_bar.write(message1 + message2)
+                    train_logger.log_data(losses) # TODO ensure that losses is a 1d list (i assume it is from the above implementation)
 
-                    log(train_logger, step, losses=losses)
+                    outer_bar.write(f"Total loss of train step {step}:\n{total_loss}")
+
+                    # message1 = "Step {}/{}, ".format(step, total_step)
+                    # message2 = "Total Loss: {:.4f}, Mel Loss: {:.4f}, Mel PostNet Loss: {:.4f}, Pitch Loss: {:.4f}, Energy Loss: {:.4f}, Duration Loss: {:.4f}".format(
+                    #     *losses
+                    # )
+
+                    # with open(os.path.join(train_log_path, "log.txt"), "a") as f:
+                    #     f.write(message1 + message2 + "\n")
+
+                    # log(train_logger, step, losses=losses)
 
                 
-                # Remove? 
+                ## synth 1 sample every synth step
+                # Keep so we can see how it changes (like one per 6 hours or something)
+                # TODO look further into this code (i kept everything as it was assuming it would work)
                 if step % synth_step == 0:
                     fig, wav_reconstruction, wav_prediction, tag = synth_one_sample(
                         batch,
@@ -177,11 +216,36 @@ def main(args, configs):
                 if step % val_step == 0:
                     model.eval()
 
+                    # Get dataset # TODO use corret path to validation data
+                    dataset = Dataset("val.txt", preprocess_config, train_config, sort=False, drop_last=False)
+                    batch_size = train_config["optimizer"]["batch_size"]
+                    loader = DataLoader(dataset,batch_size=batch_size,shuffle=False,collate_fn=dataset.collate_fn,)
+
+                    # loss
+                    loss_sums = [0 for _ in range(6)]
+                    for batchs in loader:
+                        for batch in batchs:
+                            batch = to_device(batch, device)
+                            with torch.no_grad():
+                                # Forward
+                                output = model(*(batch[2:])) # TODO Use same unpacking as in above
+
+                                # Cal Loss
+                                losses = loss_handler.get_losses(batch, output)
+
+                                for i in range(len(losses)):
+                                    loss_sums[i] += losses[i].item() * len(batch[0])
+
+                    loss_means = [loss_sum / len(dataset) for loss_sum in loss_sums]
+
+                    validation_logger.log_data(loss_means)
+
                     # Remove?? (andreas), replace with model(data) -> loss(out,target) -> log
-                    message = evaluate(model, step, configs, val_logger, vocoder)
-                    with open(os.path.join(val_log_path, "log.txt"), "a") as f:
-                        f.write(message + "\n")
-                    outer_bar.write(message)
+                    # message = evaluate(model, step, configs, val_logger, vocoder)
+                    # with open(os.path.join(val_log_path, "log.txt"), "a") as f:
+                    #     f.write(message + "\n")
+
+                    outer_bar.write(f"Validation step{step/val_step} resulted in mean loss' of:\n{loss_means}")
 
                     model.train()
 
@@ -201,6 +265,7 @@ def main(args, configs):
 
                 if step == total_step:
                     quit()
+                    
                 step += 1
 
                 if arg.local:

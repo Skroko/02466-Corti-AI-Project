@@ -8,7 +8,10 @@ import yaml
 
 class VarianceAdaptor(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config: dict) -> None:
+        """
+        Initializes the variance adapter using the given config. 
+        """
 
         self.duration = VariancePredictor(config) 
         self.length_regulator = LengthRegulator # A function
@@ -42,28 +45,35 @@ class VarianceAdaptor(nn.Module):
         # setup embedding here based on config.
 
     
-    def get_bin(self, low: float, high: float, n: int, type: str):
+    def get_bin(self, low: float, high: float, n: int, type: str) -> nn.Parameter:
+        """
+        Finds n (int) bins between low (flaot) and high (float) using linspace. If type=log, then logspace is used instead.
+        """
         if type == 'log':
             return nn.Parameter(torch.linspace(low.log(), high.log(), n).exp(), requires_grad=False)
         else: # potentially add more types?
             return nn.Parameter(torch.linspace(low, high, n), requires_grad=False)
     
-    def get_feature_embedding(self, predictor, bins, embedding, x, target, mask, scale = 1):
+
+    def get_feature_embedding(self, predictor: VariancePredictor, bins: torch.Tensor, embedding: nn.Embedding, x: torch.Tensor, target: torch.Tensor, mask: torch.Tensor, scale: int = 1) -> tuple[torch.Tensor,torch.Tensor]:
+        """
+        Finds the predicted values and embedding using the given predictor and some data.\n
+
+        if a target is given, it will scale the prediction and calculate the embeddings using the prediction,\n
+        else it will calculate the embedding useing the true values.
+        """
         prediction = predictor(x, mask)
 
         if target is None: # Inference
             prediction = prediction * scale
-            embeddings = embedding(torch.bucketize(prediction, bins)) 
+            embeddings = embedding(torch.bucketize(prediction, bins)) # bucketize takes some values (continous) and an ordered list containing bounderies. For each value find the interval in the bounderies, where the value fits in and replace the value wit the larger (right) boundery. Example: if we have value 2.2 and bounderies [1,4,6,22], then we would return 4 (as 2.2 is between 1 and 4), if we had value [6.001,21] and the same bounderies we would return [22,22] as both of these numbers fall between 6 and 22.
         else: # Training
             embeddings = embedding(torch.bucketize(target, bins))
 
         return prediction, embeddings
 
 
-
-
-
-    def forward(self, hidden_phoneme_sequence, mask, frame_mask, targets, scales):
+    def forward(self, hidden_phoneme_sequence: torch.Tensor, mask: torch.Tensor, frame_mask: torch.Tensor, targets: torch.Tensor, scales: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Arguments:
             hidden_phoneme_sequence: A Tensor of size [B, L, E] 
