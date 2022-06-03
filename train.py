@@ -156,8 +156,6 @@ def main(args, configs):
                     optimizer.step_and_update_lr()
                     optimizer.zero_grad()
 
-                ############################# Andreas went to this points ###########################################
-
                 # Rewrite this section to log and produce graphs as we want
                     # loss graphs
                 if step % log_step == 0:
@@ -265,7 +263,7 @@ def main(args, configs):
 
                 if step == total_step:
                     quit()
-                    
+
                 step += 1
 
                 if arg.local:

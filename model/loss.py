@@ -12,7 +12,6 @@ class LossHandler():
 
             Transformer loss (net_loss)\n
             PostNet loss (net_loss)\n
-
         """
         pass
         # add masks here?
@@ -79,11 +78,11 @@ class LossHandler():
 
         return VA_computed_losses, transformer_mel_loss, postnet_mel_loss
 
-          
+
 
 if __name__ == "__main__":
 
-    loss_clas = loss_class()
+    loss_clas = LossHandler()
 
     x,y  = torch.tensor([1.,22.]), torch.tensor([2.,3.])
     mask = torch.tensor([False,True])
@@ -98,4 +97,3 @@ if __name__ == "__main__":
     print(loss_clas.VA_loss(x,y,mask))
     print(loss_clas.VA_loss(x,y,None))
     # print(loss_clas.net_loss(x,y,mask))
-
