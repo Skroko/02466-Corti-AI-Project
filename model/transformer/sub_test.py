@@ -138,7 +138,7 @@ def unit_test_forward_shape_Encoder():
     seq_len = c_dict["seq_len"]
     N_layers = c_dict["N_layers"]
 
-    decoder = Encoder(N_layers, config = c_dict)
+    decoder = Encoder(N_layers, model_config = c_dict)
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
 
     out = decoder(x)
@@ -157,7 +157,7 @@ def unit_test_forward_shape_Decoder():
     seq_len = c_dict["seq_len"]
     N_layers = c_dict["N_layers"]
 
-    decoder = Decoder(N_layers, config = c_dict)
+    decoder = Decoder(N_layers, model_config = c_dict)
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
 
     mas = [False]*(batch_size-5)+[True]*5
@@ -180,7 +180,7 @@ def unit_test_forward_shape_Decoder():
     seq_len = c_dict["seq_len"]
     N_layers = c_dict["N_layers"]
 
-    decoder = Decoder(N_layers, config = c_dict)
+    decoder = Decoder(N_layers, model_config = c_dict)
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
 
     mas = [False]*(batch_size-5)+[True]*5

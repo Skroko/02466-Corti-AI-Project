@@ -7,10 +7,10 @@ from .module import B_CoderModule
 # from utils.device import device
 
 class Encoder(nn.Module):
-    def __init__(self, N_layers: int, config:dict) -> None:
+    def __init__(self, model_config: dict) -> None:
         super().__init__()
-
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, config = config) for _ in range(N_layers)])
+        n = model_config['transformer']['encoder']['layers']
+        self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, config = model_config) for _ in range(n)])
 
     def forward(self, x: Tensor, mask: Tensor) -> Tensor:
         for layer in self.layers:
@@ -19,10 +19,11 @@ class Encoder(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, N_layers: int, config: dict) -> None:
+    def __init__(self, model_config: dict) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, config = config) for _ in range(N_layers)])
+        n = model_config['transformer']['decoder']['layers']
+        self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, config = model_config) for _ in range(n)])
 
     def forward(self, x: Tensor, mask: Tensor, VA_k: Tensor, VA_v: Tensor) -> Tensor:
         for layer in self.layers:
@@ -84,7 +85,7 @@ class PostNet(nn.Module):
                                 ) 
                             for i in range(n_conv_layers)])
 
-        self.act_fnc = nn.ReLU()
+        self.act_fnc = nn.ReLU() # Should be tanh? // Klaus
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -92,6 +93,7 @@ class PostNet(nn.Module):
         # Transpose as we want to do convolution on the embedding, not on the sequence
         x = x.contiguous().transpose(1, 2) 
 
+        # TODO: Really not sure if this sequence is correct, when comparing to Tacatron 2 // Klaus
         for conv,batch_norm in self.conv_layers:
             x = conv(x)
             x = self.act_fnc(x)
@@ -116,7 +118,7 @@ if __name__ == "__main__":
     seq_len = c_dict["seq_len"]
 
 
-    mod = Encoder(N_layers=2, config = c_dict).double()
+    mod = Encoder(N_layers=2, model_config = c_dict).double()
     pn = PostNet(d_model = d_model, kernel_size = 3, n_mel_channels = d_model, n_conv_layers = 3, dropout = 0.1).double()
 
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.double).view(batch_size,seq_len,d_model)

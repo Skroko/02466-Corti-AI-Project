@@ -1,4 +1,3 @@
-
 from torch import nn
 import torch
 from model.varianceadaptor.lengthregulator import LengthRegulator
@@ -8,30 +7,36 @@ import yaml
 
 class VarianceAdaptor(nn.Module):
 
-    def __init__(self, config):
-
+    def __init__(self, config: dict) -> None:
+        """
+        Initializes the variance adapter using the given config. 
+        """
+        # Define duration predictor
         self.duration = VariancePredictor(config) 
         self.length_regulator = LengthRegulator # A function
 
         # maybe write code, which extracts those features
-#        self.features = config['model']['variance-adaptor']['features']
-#        self.features.sorted(key= lambda f: config['model']['variance-adaptor'][f]['order'])
-#        self.feature_predictors = {feature: VariancePredictor(config) for feature in self.features}
+        # self.features = config['model']['variance-adaptor']['features']
+        # self.features.sorted(key= lambda f: config['model']['variance-adaptor'][f]['order'])
+        # self.feature_predictors = {feature: VariancePredictor(config) for feature in self.features}
 
-
+        # WTF is this and how does it work?, i dont know where these functions are defined
         self.set_bins(config)
         self.set_embedding_bins(config)
 
+        ## define pitch predictor and energy predictor
         self.pitch = VariancePredictor(config)
         self.energy = VariancePredictor(config) 
+
+        ## loads file, shouldnt it just be passed in? and shouldn't it be closed again?
         variance_config = config['model']['variance-adaptor'] 
         with open(config['preprocess']['statistics'], 'r') as f:
             preprocess_stats = yaml.full_load(f)
 
+        ## Get bins and embeddings for pitch and energy 
         pitch_stat = preprocess_stats['pitch']
         self.pitch_bins = self.get_bin(pitch_stat['low'], pitch_stat['high'], variance_config['pitch']['n_bins'], pitch_stat['type'])
         self.pitch_embedding = nn.Embedding(variance_config['pitch']['n_bins'], config['model']['encoder']['hidden'])
-
 
         energy_stat = preprocess_stats['energy']
         self.energy_bins = self.get_bin(energy_stat['low'], energy_stat['high'], variance_config['energy']['n_bins'], energy_stat['type'])
@@ -42,28 +47,35 @@ class VarianceAdaptor(nn.Module):
         # setup embedding here based on config.
 
     
-    def get_bin(self, low: float, high: float, n: int, type: str):
+    def get_bin(self, low: float, high: float, n: int, type: str) -> nn.Parameter:
+        """
+        Finds n (int) bins between low (flaot) and high (float) using linspace. If type=log, then logspace is used instead.
+        """
         if type == 'log':
             return nn.Parameter(torch.linspace(low.log(), high.log(), n).exp(), requires_grad=False)
         else: # potentially add more types?
             return nn.Parameter(torch.linspace(low, high, n), requires_grad=False)
     
-    def get_feature_embedding(self, predictor, bins, embedding, x, target, mask, scale = 1):
+
+    def get_feature_embedding(self, predictor: VariancePredictor, bins: torch.Tensor, embedding: nn.Embedding, x: torch.Tensor, target: torch.Tensor, mask: torch.Tensor, scale: int = 1):
+        """
+        Finds the predicted values and embedding using the given predictor and some data.\n
+
+        if a target is given, it will scale the prediction and calculate the embeddings using the prediction,\n
+        else it will calculate the embedding useing the true values.
+        """
         prediction = predictor(x, mask)
 
         if target is None: # Inference
             prediction = prediction * scale
-            embeddings = embedding(torch.bucketize(prediction, bins)) 
+            embeddings = embedding(torch.bucketize(prediction, bins)) # bucketize takes some values (continous) and an ordered list containing bounderies. For each value find the interval in the bounderies, where the value fits in and replace the value wit the larger (right) boundery. Example: if we have value 2.2 and bounderies [1,4,6,22], then we would return 4 (as 2.2 is between 1 and 4), if we had value [6.001,21] and the same bounderies we would return [22,22] as both of these numbers fall between 6 and 22.
         else: # Training
             embeddings = embedding(torch.bucketize(target, bins))
 
         return prediction, embeddings
 
 
-
-
-
-    def forward(self, hidden_phoneme_sequence, mask, frame_mask, targets, scales):
+    def forward(self, hidden_phoneme_sequence: torch.Tensor, mask: torch.Tensor, frame_mask: torch.Tensor, targets: torch.Tensor, scales: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Arguments:
             hidden_phoneme_sequence: A Tensor of size [B, L, E] 
@@ -99,26 +111,29 @@ class VarianceAdaptor(nn.Module):
             E = Embedding Dimension
 
         """
+        ## takes initial hidden phoneme sequence
         x = hidden_phoneme_sequence
 
+        ## pass through duration predictor
         log_duration = self.duration(x, mask)
         rounded_duration = torch.clamp((log_duration.exp() * scales['duration']).round(), min = 0)
 
+        ## length regulation
         if targets['duration'] is None:
-
             x = self.length_regulator(x, rounded_duration) 
-        
+         
         else:
             # We don't multiply with scales['duration'], since this is expected to be incorperated into the target
             x = self.length_regulator(x, targets['duration'])
             # They do something with a max_len here and redefine the mel_mask
 
+        ## get pitch embedding and perform skip layer
         pitch, pitch_embedding = self.get_feature_embedding(self.pitch, self.pitch_bins, self.pitch_embedding, x, targets['pitch'], frame_mask, scales['pitch'])
-
         x = pitch_embedding + x
 
+        ## get enegy embedding and perform skip layer
         energy, energy_embedding = self.get_feature_embedding(self.energy, self.energy_bins, self.energy_embedding, x, targets['energy'], frame_mask, scales['energy'])
-
         variance_embedding = energy_embedding + x
 
+        # Also return the pitch and energy without embedding them, as we need these for optimization during training
         return rounded_duration, pitch, energy, variance_embedding, mask, frame_mask 
