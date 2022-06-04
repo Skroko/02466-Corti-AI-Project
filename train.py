@@ -48,7 +48,7 @@ def main(args, configs):
 
     ## Prepare model
     #model, optimizer = get_model(args, configs, device, train=True)
-    model = get_model()
+    model = get_model() # Rewrite to get and actually load the optimizer >)
 
     # I don't think we should use this.
     # model = nn.DataParallel(model)

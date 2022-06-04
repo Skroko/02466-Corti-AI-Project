@@ -8,6 +8,7 @@ from utils.tools import get_mask_from_lengths
 
 from text.symbols import symbols # Just to get how many symbols we have
 
+from model.varianceadaptor.varianceadaptor import VarianceAdaptor
 
 class FastSpeech2(nn.Module):
     """
@@ -37,7 +38,7 @@ class FastSpeech2(nn.Module):
 
         self.encoder = Encoder(model_config)
 
-        self.VA = None # VA() # TODO INSEART VA HERE
+        self.va = VarianceAdaptor(model_config, preprocess_config) 
 
         self.decoder_positional_encoding = nn.Parameter(
             pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False
@@ -62,8 +63,11 @@ class FastSpeech2(nn.Module):
     mel_lens = None,
     max_mel_len = None,
     pitches = None,
-    energies = None ,
+    energies = None,
     durations = None,
+    pitch_scale = 1.,
+    energy_scale = 1.,
+    duration_scale = 1.,
     ) -> Tensor:
         """
         Comment on input:
@@ -81,34 +85,30 @@ class FastSpeech2(nn.Module):
         frame_masks = get_mask_from_lengths(mel_lens, max_mel_len) if mel_lens is not None else None
 
         # Add embedding
-
+        texts = self.phoneme_embedding(texts)
 
         # Generate positional encoding
         texts += self.encoder_positional_encoding[:, :max_text_len, :].expand(texts.shape[0], -1, -1) # Expand to match the shape of text.
 
         # Pass through encoder
-        encoder_out = self.encoder.forward(texts, sequence_masks)
+        encoder_out = self.encoder(texts, sequence_masks)
 
         # Pass through VA
-        vae_out = encoder_out #self.VA.forward(encoder_out, mel_masks)
-
-        vae_out += self.decoder_positional_encoding[:, :]
-        # Pass through decoder
-        decoder_out = self.decoder.forward(vae_out, frame_masks)
+        vae_out = self.va.forward(encoder_out, sequence_masks, frame_masks, {'duration': durations, 'pitch': pitches, 'energy': energies},) #self.VA.forward(encoder_out, mel_masks)
 
         # Positional encoding
-        decoder_out_positional_encoding = decoder_out #pos_encoding(decoder_out,self.d_model)
+        vae_out += self.decoder_positional_encoding[:, :]
 
-        # lin layer to mel dims
-        mel_lin_out = self.mel_lin.forward(decoder_out_positional_encoding)
+        # Pass through decoder
+        decoder_out = self.decoder(vae_out, frame_masks)
+
+        # Lin layer to mel dims # I virkeligheden slutningen af Decoder? // Klaus
+        mel_lin_out = self.mel_lin.forward(decoder_out)
 
         # Pass through postnet
         mel = self.postnet.forward(mel_lin_out) + mel_lin_out
 
-        if VA_true_vals is not None:
-            return mel, VA_out_retain
-            
-        return mel # TODO add more outputs for each individuel part
+        return mel
 
 if __name__ == "__main__":
     import yaml

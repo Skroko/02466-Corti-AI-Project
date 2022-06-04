@@ -1,18 +1,20 @@
-from torch import nn
+from torch import nn, tensor
 import torch
 from model.varianceadaptor.lengthregulator import LengthRegulator
 from model.varianceadaptor.variancepredictor import VariancePredictor
 
 import yaml
+import os
+import json
 
 class VarianceAdaptor(nn.Module):
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, model_config: dict, preprocess_config: dict) -> None:
         """
         Initializes the variance adapter using the given config. 
         """
         # Define duration predictor
-        self.duration = VariancePredictor(config) 
+        self.duration = VariancePredictor(model_config) 
         self.length_regulator = LengthRegulator # A function
 
         # maybe write code, which extracts those features
@@ -21,26 +23,32 @@ class VarianceAdaptor(nn.Module):
         # self.feature_predictors = {feature: VariancePredictor(config) for feature in self.features}
 
         # WTF is this and how does it work?, i dont know where these functions are defined
-        self.set_bins(config)
-        self.set_embedding_bins(config)
+        self.set_bins(model_config)
+        self.set_embedding_bins(model_config)
 
         ## define pitch predictor and energy predictor
-        self.pitch = VariancePredictor(config)
-        self.energy = VariancePredictor(config) 
+        self.pitch = VariancePredictor(model_config)
+        self.energy = VariancePredictor(model_config) 
 
         ## loads file, shouldnt it just be passed in? and shouldn't it be closed again?
-        variance_config = config['model']['variance-adaptor'] 
-        with open(config['preprocess']['statistics'], 'r') as f:
-            preprocess_stats = yaml.full_load(f)
+        variance_config = model_config['variance-adaptor']
+
+        with open(
+            os.path.join(preprocess_config["path"]["preprocessed_path"], "stats.json")
+        ) as f:
+            stats = json.load(f)
+            pitch_min, pitch_max = stats["pitch"][:2]
+            energy_min, energy_max = stats["energy"][:2]
 
         ## Get bins and embeddings for pitch and energy 
-        pitch_stat = preprocess_stats['pitch']
-        self.pitch_bins = self.get_bin(pitch_stat['low'], pitch_stat['high'], variance_config['pitch']['n_bins'], pitch_stat['type'])
-        self.pitch_embedding = nn.Embedding(variance_config['pitch']['n_bins'], config['model']['encoder']['hidden'])
+        self.pitch_bins = self.get_bin(pitch_min, pitch_max, variance_config['pitch']['n_bins'], variance_config['pitch']['type'])
+        self.pitch_embedding = nn.Embedding(variance_config['pitch']['n_bins'], model_config['model']['encoder']['hidden'])
+        self.pitch_preprocess_type = preprocess_config['pitch']['feature'] # phoneme or frame
 
         energy_stat = preprocess_stats['energy']
-        self.energy_bins = self.get_bin(energy_stat['low'], energy_stat['high'], variance_config['energy']['n_bins'], energy_stat['type'])
-        self.energy_embedding = nn.Embedding(variance_config['energy']['n_bins'], config['model']['encoder']['hidden'])
+        self.energy_bins = self.get_bin(energy_min, energy_max, variance_config['energy']['n_bins'], variance_config['energy']['type'])
+        self.energy_embedding = nn.Embedding(variance_config['energy']['n_bins'], model_config['model']['encoder']['hidden'])
+        self.energy_preprocess_type = preprocess_config['energy']['feature'] # phoneme or frame
 
 
         super().__init__()
@@ -75,17 +83,18 @@ class VarianceAdaptor(nn.Module):
         return prediction, embeddings
 
 
-    def forward(self, hidden_phoneme_sequence: torch.Tensor, mask: torch.Tensor, frame_mask: torch.Tensor, targets: torch.Tensor, scales: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, hidden_phoneme_sequence: torch.Tensor, sequence_mask: torch.Tensor, frame_mask: torch.Tensor, targets: torch.Tensor, scales: int) -> 'tuple[tensor]':
         """
         Arguments:
-            hidden_phoneme_sequence: A Tensor of size [B, L, E] 
-            mask: !TODO! Basically just mask the input to the right, which hasn't been predicted
-            frame_mask: !TODO!
+            hidden_phoneme_sequence: A Tensor of size [B, 𝕃, E] 
+            sequence_mask: A Tensor of shape [B, 𝕃] telling us which phoneme embeddings to mask. 
+            frame_mask: A Tensor of shape [B, 𝕄] telling us which frames to mask.
 
         Output:
-            variance_embedding: A Tensor of size [B, L (Length Regulated), E]
-            duration_prediction: A Tensor of size [B, L, 1]
-            energy_prediction: A Tensor of size [B, L, E]
+            variance_embedding: A Tensor of size [B, 𝕄, E]
+            duration_prediction: A Tensor of size [B, 𝕃, 1]
+            energy_prediction: A Tensor of size [B,𝕃] (phoneme) or [B, 𝕄] (frame)
+            pitch_prediction: A Tensor of size [B,𝕃] (phoneme) or [B, 𝕄] (frame)
 
         Description:
             The hidden_phoneme_sequence is passed to the length_duration predictor.
@@ -115,7 +124,7 @@ class VarianceAdaptor(nn.Module):
         x = hidden_phoneme_sequence
 
         ## pass through duration predictor
-        log_duration = self.duration(x, mask)
+        log_duration = self.duration(x, sequence_mask)
         rounded_duration = torch.clamp((log_duration.exp() * scales['duration']).round(), min = 0)
 
         ## length regulation
@@ -136,4 +145,4 @@ class VarianceAdaptor(nn.Module):
         variance_embedding = energy_embedding + x
 
         # Also return the pitch and energy without embedding them, as we need these for optimization during training
-        return rounded_duration, pitch, energy, variance_embedding, mask, frame_mask 
+        return rounded_duration, pitch, energy, variance_embedding, sequence_mask, frame_mask 
