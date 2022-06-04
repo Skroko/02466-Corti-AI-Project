@@ -101,6 +101,35 @@ def main(args, configs):
             for batch in batchs:
                 batch = to_device(batch, device)
 
+                """
+                id = The ID of the data point in the dataset
+                
+                raw_text = Text, which is NOT phoneme embedded
+                
+                speakers = speaker embedding, if training the model in multi speaker mode.
+                
+                texts = the embedded texts/sequences, on the form [B, 𝕃], where 𝕃 is the longest of all the sequences amongst the batch. Sequences not of length 𝕃 have been 0 padded as the 0 character represents the sound of nothing and is always removed if present in the text. Its current form is _
+
+                text_lens = the original sequence lengths of the texts in the batches before they were 0 padded, this is used to generate the masks we will call the 'sequence_masks'.
+
+                max_text_len = the max of text_lens
+
+                mels = the target mel spectrograms for each text, which have also been 0 padded in the same manner as the text. So they have dimensionality [B, 𝕄], where 𝕄 is the longest mel sequence.    
+
+                mel_lens = the original mel spectrogram lengths of the mel spectrograms in the batches, before they were 0 padded. 
+                This is used to generate what we will call the 'frame_masks'.
+
+                max_mel_len = max of mel_lens
+
+                durations = the durations which have been padded such that they have the dimension [B, 𝕃] in the case of a phoneme preprocessing scheme, otherwise they would have a length of [B, 𝕄] (to match the frames? not 100% sure of this). How this will be handled is that we pass the padded texts in, but only duration extend in the slots, where we have original sequence, then we pad so it matches the max_mel_len at the end such that everything ends up having the dimensionality of [B, 𝕄, E].
+
+                pitches = -||-
+
+                energies = -||- 
+                
+                """
+                ids, raw_texts, speakers, texts, text_lens, max_text_len,\
+                mels, mel_lens, max_mel_len, pitches, energies, durations = batch
                 # Forward
                 # TODO: add explicit variable names for batch unpacking (*(batch[2:]))
                 output = model(*(batch[2:]))
