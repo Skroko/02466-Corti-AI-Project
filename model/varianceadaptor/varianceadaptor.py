@@ -23,8 +23,7 @@ class VarianceAdaptor(nn.Module):
         # self.feature_predictors = {feature: VariancePredictor(config) for feature in self.features}
 
         # WTF is this and how does it work?, i dont know where these functions are defined
-        self.set_bins(model_config)
-        self.set_embedding_bins(model_config)
+        1 + 1;
 
         ## define pitch predictor and energy predictor
         self.pitch = VariancePredictor(model_config)
@@ -45,7 +44,6 @@ class VarianceAdaptor(nn.Module):
         self.pitch_embedding = nn.Embedding(variance_config['pitch']['n_bins'], model_config['model']['encoder']['hidden'])
         self.pitch_preprocess_type = preprocess_config['pitch']['feature'] # phoneme or frame
 
-        energy_stat = preprocess_stats['energy']
         self.energy_bins = self.get_bin(energy_min, energy_max, variance_config['energy']['n_bins'], variance_config['energy']['type'])
         self.energy_embedding = nn.Embedding(variance_config['energy']['n_bins'], model_config['model']['encoder']['hidden'])
         self.energy_preprocess_type = preprocess_config['energy']['feature'] # phoneme or frame
@@ -77,13 +75,14 @@ class VarianceAdaptor(nn.Module):
         if target is None: # Inference
             prediction = prediction * scale
             embeddings = embedding(torch.bucketize(prediction, bins)) # bucketize takes some values (continous) and an ordered list containing bounderies. For each value find the interval in the bounderies, where the value fits in and replace the value wit the larger (right) boundery. Example: if we have value 2.2 and bounderies [1,4,6,22], then we would return 4 (as 2.2 is between 1 and 4), if we had value [6.001,21] and the same bounderies we would return [22,22] as both of these numbers fall between 6 and 22.
+            # lolno it would return [3,3] // Klaus
         else: # Training
             embeddings = embedding(torch.bucketize(target, bins))
 
         return prediction, embeddings
 
 
-    def forward(self, hidden_phoneme_sequence: torch.Tensor, sequence_mask: torch.Tensor, frame_mask: torch.Tensor, targets: torch.Tensor, scales: int) -> 'tuple[tensor]':
+    def forward(self, hidden_phoneme_sequence: torch.Tensor, sequence_mask: torch.Tensor, frame_masks: torch.Tensor, targets: torch.Tensor, scales: int) -> 'tuple[tensor]':
         """
         Arguments:
             hidden_phoneme_sequence: A Tensor of size [B, 𝕃, E] 
@@ -126,7 +125,14 @@ class VarianceAdaptor(nn.Module):
         ## pass through duration predictor
         log_duration = self.duration(x, sequence_mask)
         rounded_duration = torch.clamp((log_duration.exp() * scales['duration']).round(), min = 0)
+        if self.pitch_preprocess_type == 'phoneme_level':
+            pitch, pitch_embedding = self.get_feature_embedding(self.pitch, self.pitch_bins, self.pitch_embedding, x, targets['pitch'], sequence_mask, scales['pitch'])
+            x = pitch_embedding + x
 
+        ## get enegy embedding and perform skip layer
+        if self.energy_preprocess_type == 'phoneme_level':
+            energy, energy_embedding = self.get_feature_embedding(self.energy, self.energy_bins, self.energy_embedding, x, targets['energy'], sequence_mask, scales['energy'])
+            x = energy_embedding + x
         ## length regulation
         if targets['duration'] is None:
             x = self.length_regulator(x, rounded_duration) 
@@ -137,12 +143,15 @@ class VarianceAdaptor(nn.Module):
             # They do something with a max_len here and redefine the mel_mask
 
         ## get pitch embedding and perform skip layer
-        pitch, pitch_embedding = self.get_feature_embedding(self.pitch, self.pitch_bins, self.pitch_embedding, x, targets['pitch'], frame_mask, scales['pitch'])
-        x = pitch_embedding + x
+        if self.pitch_preprocess_type == 'frame_level':
+            pitch, pitch_embedding = self.get_feature_embedding(self.pitch, self.pitch_bins, self.pitch_embedding, x, targets['pitch'], frame_masks, scales['pitch'])
+            x = pitch_embedding + x
 
         ## get enegy embedding and perform skip layer
-        energy, energy_embedding = self.get_feature_embedding(self.energy, self.energy_bins, self.energy_embedding, x, targets['energy'], frame_mask, scales['energy'])
-        variance_embedding = energy_embedding + x
+        if self.energy_preprocess_type == 'frame_level':
+            energy, energy_embedding = self.get_feature_embedding(self.energy, self.energy_bins, self.energy_embedding, x, targets['energy'], frame_masks, scales['energy'])
+            x = energy_embedding + x
 
+        variance_out = x
         # Also return the pitch and energy without embedding them, as we need these for optimization during training
-        return rounded_duration, pitch, energy, variance_embedding, sequence_mask, frame_mask 
+        return log_duration, pitch, energy, variance_out, frame_masks 

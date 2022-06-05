@@ -87,6 +87,9 @@ class FastSpeech2(nn.Module):
         # Add embedding
         texts = self.phoneme_embedding(texts)
 
+
+        # TODO: Move pos encoding under encoder decoder, generate head mask and pass through to multi head self attention.
+        # TODO: Load optimizer
         # Generate positional encoding
         texts += self.encoder_positional_encoding[:, :max_text_len, :].expand(texts.shape[0], -1, -1) # Expand to match the shape of text.
 
@@ -94,7 +97,7 @@ class FastSpeech2(nn.Module):
         encoder_out = self.encoder(texts, sequence_masks)
 
         # Pass through VA
-        vae_out = self.va.forward(encoder_out, sequence_masks, frame_masks, {'duration': durations, 'pitch': pitches, 'energy': energies},) #self.VA.forward(encoder_out, mel_masks)
+        log_duration, pitch, energy, vae_out, frame_masks = self.va.forward(encoder_out, sequence_masks, frame_masks, {'duration': durations, 'pitch': pitches, 'energy': energies},) #self.VA.forward(encoder_out, mel_masks)
 
         # Positional encoding
         vae_out += self.decoder_positional_encoding[:, :]
