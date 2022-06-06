@@ -32,17 +32,10 @@ class FastSpeech2(nn.Module):
         self.phoneme_embedding = nn.Embedding(len(symbols) + 1, model_config['transformer']['encoder']['hidden'], padding_idx=0) 
         # I actually don't think we need the plus one, since we let the character '_' be included in the symbols, and use it as the padding index, but I guess maybe we don't // Klaus
 
-        self.encoder_positional_encoding = nn.Parameter(
-            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False # We don't want to tune these, but have this as a paramter for counting the number of paramters???????????? // Klaus
-        )
-
         self.encoder = Encoder(model_config)
 
         self.va = VarianceAdaptor(model_config, preprocess_config) 
 
-        self.decoder_positional_encoding = nn.Parameter(
-            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False
-        )
         self.decoder = Decoder(model_config) # used to be a decoder
 
         mel_channels = preprocess_config['preprocessing']['mel']['n_mel_channels']

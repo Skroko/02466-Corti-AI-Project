@@ -4,17 +4,46 @@ from torch import Tensor
 import numpy as np
 
 from .module import B_CoderModule
+
 # from utils.device import device
 
 class Encoder(nn.Module):
     def __init__(self, model_config: dict) -> None:
         super().__init__()
+
+        self.positional_encoding = nn.Parameter(
+            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False # We don't want to tune these, but have this as a paramter for counting the number of paramters???????????? // Klaus
+        )
+
+        self.max_seq_len = model_config['max_seq_len']
+
+        self.encoder_hidden = model_config['transformer']['encoder']['hidden']
+
         n = model_config['transformer']['encoder']['layers']
+
         self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, config = model_config) for _ in range(n)])
 
-    def forward(self, x: Tensor, mask: Tensor) -> Tensor:
+    def forward(self, x: Tensor, sequence_mask: Tensor) -> Tensor:
+        """
+        x = Phoneme embedding of size [B, 𝕃, E]
+        """
+        B = x.shape[0]
+        𝕃 = x.shape[1]
+
+        # Generate multi head attention mask with shape [B, 𝕃, 𝕃] 
+        multi_head_mask = sequence_mask.unsqueeze(1).expand(-1, 𝕃, -1)
+
+        if not self.training and 𝕃 > self.max_seq_len:
+            # Add positional encoding with shape [B, 𝕃, E]
+            x += pos_encoding(𝕃, self.encoder_hidden)[:𝕃].unsqueeze(0).expand(B, -1, -1).to(x.device)
+        else:
+
+            # Add positional encoding with shape [B, 𝕃, E]
+            x += self.positional_encoding[:, :𝕃].expand(B, -1, -1)
+            
+
         for layer in self.layers:
-            x = layer(x,x,x, mask = mask) 
+            x = layer(x,x,x, mask = sequence_mask, multi_head_mask = multi_head_mask) 
 
         return x
 
@@ -22,7 +51,12 @@ class Decoder(nn.Module):
     def __init__(self, model_config: dict) -> None:
         super().__init__()
 
+        self.positional_encoding = nn.Parameter(
+            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False
+        )
+
         n = model_config['transformer']['decoder']['layers']
+
         self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, config = model_config) for _ in range(n)])
 
     def forward(self, x: Tensor, mask: Tensor, VA_k: Tensor, VA_v: Tensor) -> Tensor:

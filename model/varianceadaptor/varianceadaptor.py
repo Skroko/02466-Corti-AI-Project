@@ -133,6 +133,7 @@ class VarianceAdaptor(nn.Module):
         if self.energy_preprocess_type == 'phoneme_level':
             energy, energy_embedding = self.get_feature_embedding(self.energy, self.energy_bins, self.energy_embedding, x, targets['energy'], sequence_mask, scales['energy'])
             x = energy_embedding + x
+
         ## length regulation
         if targets['duration'] is None:
             x = self.length_regulator(x, rounded_duration) 
