@@ -4,25 +4,60 @@ from torch import Tensor
 import numpy as np
 
 from .module import B_CoderModule
+
 # from utils.device import device
 
 class Encoder(nn.Module):
-    def __init__(self, N_layers: int, config:dict) -> None:
+    def __init__(self, model_config: dict) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, config = config) for _ in range(N_layers)])
+        self.positional_encoding = nn.Parameter(
+            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False # We don't want to tune these, but have this as a paramter for counting the number of paramters???????????? // Klaus
+        )
 
-    def forward(self, x: Tensor, mask: Tensor) -> Tensor:
+        self.max_seq_len = model_config['max_seq_len']
+
+        self.encoder_hidden = model_config['transformer']['encoder']['hidden']
+
+        n = model_config['transformer']['encoder']['layers']
+
+        self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, model_config = model_config) for _ in range(n)])
+
+    def forward(self, x: Tensor, sequence_mask: Tensor) -> Tensor:
+        """
+        x = Phoneme embedding of size [B, 𝕃, E]
+        """
+        B = x.shape[0]
+        𝕃 = x.shape[1]
+
+        # Generate multi head attention mask with shape [B, 𝕃, 𝕃] 
+        attention_mask = sequence_mask.unsqueeze(1).expand(-1, 𝕃, -1)
+
+        if not self.training and 𝕃 > self.max_seq_len:
+            # Add positional encoding with shape [B, 𝕃, E]
+            x += pos_encoding(𝕃, self.encoder_hidden)[:𝕃].unsqueeze(0).expand(B, -1, -1).to(x.device)
+        else:
+
+            # Add positional encoding with shape [B, 𝕃, E]
+            x += self.positional_encoding[:, :𝕃].expand(B, -1, -1)
+            
+
         for layer in self.layers:
-            x = layer(x,x,x, mask = mask) 
+            x = layer(x,x,x, mask = sequence_mask, multi_head_mask = attention_mask) 
 
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, N_layers: int, config: dict) -> None:
+    def __init__(self, model_config: dict) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, config = config) for _ in range(N_layers)])
+        self.positional_encoding = nn.Parameter(
+            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False
+        )
+
+        n = model_config['transformer']['decoder']['layers']
+
+        self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, model_config = model_config) for _ in range(n)])
 
     def forward(self, x: Tensor, mask: Tensor, VA_k: Tensor, VA_v: Tensor) -> Tensor:
         for layer in self.layers:
@@ -84,7 +119,7 @@ class PostNet(nn.Module):
                                 ) 
                             for i in range(n_conv_layers)])
 
-        self.act_fnc = nn.ReLU()
+        self.act_fnc = nn.ReLU() # Should be tanh? // Klaus
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -94,9 +129,10 @@ class PostNet(nn.Module):
 
         for conv,batch_norm in self.conv_layers:
             x = conv(x)
+            x = batch_norm(x)
             x = self.act_fnc(x)
             x = self.dropout(x)
-            x = batch_norm(x)
+
 
         # transpose back into correct shape
         x = x.contiguous().transpose(1, 2)
@@ -116,7 +152,7 @@ if __name__ == "__main__":
     seq_len = c_dict["seq_len"]
 
 
-    mod = Encoder(N_layers=2, config = c_dict).double()
+    mod = Encoder(N_layers=2, model_config = c_dict).double()
     pn = PostNet(d_model = d_model, kernel_size = 3, n_mel_channels = d_model, n_conv_layers = 3, dropout = 0.1).double()
 
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.double).view(batch_size,seq_len,d_model)

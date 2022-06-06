@@ -96,7 +96,7 @@ def unit_test_mask_true_MultiHeadAttention():
     mask = torch.tensor([True]*batch_size).view(batch_size,1,1)
 
     mha = MultiHeadAttention_AddNorm(N_heads, d_model, d_k, d_v)
-    out = mha.forward(x,x,v, mask = mask)
+    out = mha.forward(x,x,v, attention_mask = mask)
 
     assert v.shape == out.shape, "unit_test_shape_forward_MultiHeadAttention doesnt perserve shape"
 
@@ -114,7 +114,7 @@ def unit_test_forward_shape_B_CoderModule():
     seq_len = c_dict["seq_len"]
 
 
-    mod = B_CoderModule(type_encoder = False, config = c_dict)
+    mod = B_CoderModule(type_encoder = False, model_config = c_dict)
 
     q = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model) * (-1)
     k = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
@@ -138,7 +138,7 @@ def unit_test_forward_shape_Encoder():
     seq_len = c_dict["seq_len"]
     N_layers = c_dict["N_layers"]
 
-    decoder = Encoder(N_layers, config = c_dict)
+    decoder = Encoder(N_layers, model_config = c_dict)
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
 
     out = decoder(x)
@@ -157,7 +157,7 @@ def unit_test_forward_shape_Decoder():
     seq_len = c_dict["seq_len"]
     N_layers = c_dict["N_layers"]
 
-    decoder = Decoder(N_layers, config = c_dict)
+    decoder = Decoder(N_layers, model_config = c_dict)
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
 
     mas = [False]*(batch_size-5)+[True]*5
@@ -180,7 +180,7 @@ def unit_test_forward_shape_Decoder():
     seq_len = c_dict["seq_len"]
     N_layers = c_dict["N_layers"]
 
-    decoder = Decoder(N_layers, config = c_dict)
+    decoder = Decoder(N_layers, model_config = c_dict)
     x = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
 
     mas = [False]*(batch_size-5)+[True]*5

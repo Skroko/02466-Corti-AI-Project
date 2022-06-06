@@ -5,12 +5,12 @@ class VariancePredictor(nn.Module):
     def __init__(self, config):
         super().__init__()
         
-        in_channels = config['model']['transformer']['encoder']['hidden']
-        out_channels = config['model']['variance-predictor']['out-channels']
-        kernel_size = config['model']['variance-predictor']['kernel']
-        dropout = config['model']['variance-predictor']['dropout']
+        in_channels = config['transformer']['encoder']['hidden']
+        out_channels = config['variance-predictor']['out-channels']
+        kernel_size = config['variance-predictor']['kernel']
+        dropout = config['variance-predictor']['dropout']
 
-        output_size = config['model']['variance-predictor']['out-channels'] # The same due to the padding, stride, etc.
+        output_size = config['variance-predictor']['out-channels'] # The same due to the padding, stride, etc.
 
 
         self.block_1 = nn.Sequential(
@@ -55,7 +55,9 @@ class VariancePredictor(nn.Module):
         x = self.block_2(x)
         # TODO: mask here? Probably requires a mask transformation
         x = self.lin(x)
-        x.masked_fill(mask, 0)
+
+        x.squeeze(-1) # To get shape [B, L] from [B, L, 1]
+        x.masked_fill(mask, 0.0)
 
         return x 
 

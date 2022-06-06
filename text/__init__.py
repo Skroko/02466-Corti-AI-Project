@@ -73,3 +73,8 @@ def _arpabet_to_sequence(text):
 
 def _should_keep_symbol(s):
     return s in _symbol_to_id and s != "_" and s != "~"
+
+if __name__ == "__main__":
+
+    phonmes = text_to_sequence("Hello my name is Klaus", ["english_cleaners"])
+    print(phonmes)

@@ -2,7 +2,7 @@ import torch
 from torch import tensor
 import torch.nn.functional as F
 
-def LengthRegulator(data, lengths, pad=True):
+def LengthRegulator(data, lengths, max_length = None, pad=True):
     """
     Arguments:
         data: A Tensor of size [B, L, E] 
@@ -12,6 +12,7 @@ def LengthRegulator(data, lengths, pad=True):
         
    Output:
         expanded_data: A tensor of size [B, sum(lengths[B, L, :]) ,E]
+        mel_lengths: A tensor of size [B, 1] // This should be removed eventually, we just have it right now to interface with their synth code. An easy fix, but I will do it later if we want.
         pad_lengths: A tensor of size [B, 1]
 
     Description:
@@ -42,7 +43,7 @@ def LengthRegulator(data, lengths, pad=True):
     if pad:
 
         expansion_lengths = lengths.sum(axis=1)
-        max_length = expansion_lengths.max(axis=0)[0]
+        max_length = expansion_lengths.max(axis=0)[0] if max_length is None else max_length
         pad_lengths = max_length - expansion_lengths
 
     for i, (element, length) in enumerate(zip(data, lengths)):
@@ -56,7 +57,10 @@ def LengthRegulator(data, lengths, pad=True):
 
         expanded_data.append(_t)
 
-    return torch.stack(expanded_data), pad_lengths if pad else torch.stack(expanded_data)
+    if pad:
+        return torch.stack(expanded_data), expansion_lengths.long(), pad_lengths
+    else:
+        return torch.stack(expanded_data)
 
     #raise NotImplementedError("Missing implementation")
 
