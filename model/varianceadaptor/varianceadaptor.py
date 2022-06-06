@@ -82,6 +82,7 @@ class VarianceAdaptor(nn.Module):
 
 
     def forward(self, hidden_phoneme_sequence: torch.Tensor, sequence_mask: torch.Tensor, frame_masks: torch.Tensor, targets: torch.Tensor, scales: int) -> 'tuple[tensor]':
+        
         """
         Arguments:
             hidden_phoneme_sequence: A Tensor of size [B, 𝕃, E] 

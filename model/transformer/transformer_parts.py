@@ -21,7 +21,7 @@ class Encoder(nn.Module):
 
         n = model_config['transformer']['encoder']['layers']
 
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, config = model_config) for _ in range(n)])
+        self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, model_config = model_config) for _ in range(n)])
 
     def forward(self, x: Tensor, sequence_mask: Tensor) -> Tensor:
         """
@@ -31,7 +31,7 @@ class Encoder(nn.Module):
         𝕃 = x.shape[1]
 
         # Generate multi head attention mask with shape [B, 𝕃, 𝕃] 
-        multi_head_mask = sequence_mask.unsqueeze(1).expand(-1, 𝕃, -1)
+        attention_mask = sequence_mask.unsqueeze(1).expand(-1, 𝕃, -1)
 
         if not self.training and 𝕃 > self.max_seq_len:
             # Add positional encoding with shape [B, 𝕃, E]
@@ -43,7 +43,7 @@ class Encoder(nn.Module):
             
 
         for layer in self.layers:
-            x = layer(x,x,x, mask = sequence_mask, multi_head_mask = multi_head_mask) 
+            x = layer(x,x,x, mask = sequence_mask, multi_head_mask = attention_mask) 
 
         return x
 
@@ -57,7 +57,7 @@ class Decoder(nn.Module):
 
         n = model_config['transformer']['decoder']['layers']
 
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, config = model_config) for _ in range(n)])
+        self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, model_config = model_config) for _ in range(n)])
 
     def forward(self, x: Tensor, mask: Tensor, VA_k: Tensor, VA_v: Tensor) -> Tensor:
         for layer in self.layers:
@@ -127,12 +127,12 @@ class PostNet(nn.Module):
         # Transpose as we want to do convolution on the embedding, not on the sequence
         x = x.contiguous().transpose(1, 2) 
 
-        # TODO: Really not sure if this sequence is correct, when comparing to Tacatron 2 // Klaus
         for conv,batch_norm in self.conv_layers:
             x = conv(x)
+            x = batch_norm(x)
             x = self.act_fnc(x)
             x = self.dropout(x)
-            x = batch_norm(x)
+
 
         # transpose back into correct shape
         x = x.contiguous().transpose(1, 2)
