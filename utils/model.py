@@ -8,29 +8,35 @@ import torch
 import numpy as np
 
 import hifigan
-from model import FastSpeech2, ScheduledOptim
+from model import FastSpeech2 as fs2
 
 
 def get_model(args, configs, device, train=False):
     (preprocess_config, model_config, train_config) = configs
 
-    model = FastSpeech2(preprocess_config, model_config).to(device)
+    model = fs2.FastSpeech2(preprocess_config, model_config).to(device)
+
     if args.restore_step:
         ckpt_path = os.path.join(
-            train_config["path"]["ckpt_path"],
-            "{}.pth.tar".format(args.restore_step),
-        )
+                train_config["path"]["ckpt_path"],
+                "{}.pth.tar".format(args.restore_step))
+
         ckpt = torch.load(ckpt_path)
         model.load_state_dict(ckpt["model"])
 
     if train:
-        scheduled_optim = ScheduledOptim(
-            model, train_config, model_config, args.restore_step
-        )
+        optimizer = torch.optim.Adam(   params = model.parameters(),
+                                        lr = train_config["optimizer"]["ini_learningrate"],
+                                        betas=train_config["optimizer"]["betas"],
+                                        eps=train_config["optimizer"]["eps"],
+                                        weight_decay=train_config["optimizer"]["weight_decay"]
+)
+
         if args.restore_step:
-            scheduled_optim.load_state_dict(ckpt["optimizer"])
+            optimizer.load_state_dict(ckpt["optimizer"])
+            
         model.train()
-        return model, scheduled_optim
+        return model, optimizer
 
     model.eval()
     model.requires_grad_ = False
