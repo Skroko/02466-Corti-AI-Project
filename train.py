@@ -46,29 +46,16 @@ def main(args, configs):
     #### C
 
 
-    ## Prepare model
-    #model, optimizer = get_model(args, configs, device, train=True)
-    model = get_model() # Rewrite to get and actually load the optimizer >)
+    ## Prepare model and optimizer (Change checkpoint path (ckpt_path) in train.yaml), this is where the data is loaded and saved at.
+    # This implementation currently names saves based on step reached (which makes sense if you only have 1 model, but all models will save at the same steps)
+    # It currently loads from the step given as restore arg "args.restore_step".
+    model, optimizer = get_model(args, configs, device, train=True)
 
-    # I don't think we should use this.
-    # model = nn.DataParallel(model)
+    # model = nn.DataParallel(model) # USE IT IF WE WANT TO RUN ON MULTIPLE GRAPHIC CARDS
 
     # I guess we can do this.
     num_param = get_param_num(model)
     print("Number of FastSpeech2 Parameters:", num_param)
-
-    ## prepare optimizer
-    learning_rate = 1e-3 # TODO add to optimizer config
-    betas = train_config["optimizer"]["betas"]
-    epsilon = train_config["optimizer"]["eps"]
-    weight_decay = train_config["optimizer"]["weight_decay"]
-
-    optimizer = torch.optim.Adam(   params = model.parameters(),
-                                    lr = learning_rate,
-                                    betas=betas,
-                                    eps=epsilon,
-                                    weight_decay=weight_decay)
-
 
 
     ## Initialize our own loss here.

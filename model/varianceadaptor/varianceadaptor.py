@@ -24,9 +24,6 @@ class VarianceAdaptor(nn.Module):
         # self.features.sorted(key= lambda f: config['model']['variance-adaptor'][f]['order'])
         # self.feature_predictors = {feature: VariancePredictor(config) for feature in self.features}
 
-        # WTF is this and how does it work?, i dont know where these functions are defined
-        1 + 1;
-
         ## define pitch predictor and energy predictor
         self.pitch = VariancePredictor(model_config)
         self.energy = VariancePredictor(model_config) 
