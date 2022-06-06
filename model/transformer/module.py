@@ -11,7 +11,7 @@ from .sub_layers import PosFeedForward_AddNorm, MultiHeadAttention_AddNorm
 
 
 class B_CoderModule(nn.Module):
-    def __init__(self, type_encoder: bool, config: dict) -> None:
+    def __init__(self, type_encoder: bool, model_config: dict) -> None:
         """
         De/En - coder module \\
         Defines the layers of both the decoder and the encoder \\
@@ -24,23 +24,28 @@ class B_CoderModule(nn.Module):
         # self.generic_config_datapoint_name = generic_config_datapoint_name
         super().__init__()
 
-        in_dim = config["d_model"]
-        out_dim = config["d_model"]
-        hidden_dim = config["hidden_dim"]
-        act_fnc = nn.ReLU if config["act_fnc"] == "nn.ReLU" else "raise_error"
-        if act_fnc == "raise_error":
-            raise exception(f"B_CoderModule does not recognize act_fnc value")
-        dropout = config["dropout"]
 
-        N_heads = config["N_heads"]
-        d_model = config["d_model"]
-        d_k = config["d_k"]
-        d_v = config["d_v"]
+        if type_encoder or not type_encoder:
 
-        self.d_model = d_model
-        self.type_encoder = type_encoder
+            in_dim = model_config["d_model"]
+            out_dim = model_config["d_model"]
+            hidden_dim = model_config["hidden_dim"]
+            act_fnc = nn.ReLU if model_config["act_fnc"] == "nn.ReLU" else "raise_error"
+            if act_fnc == "raise_error":
+                raise exception(f"B_CoderModule does not recognize act_fnc value")
+            dropout = model_config["dropout"]
 
-        self.type_encoder = type_encoder
+            N_heads = model_config["N_heads"]
+            d_model = model_config["d_model"]
+            d_k = model_config["d_k"]
+            d_v = model_config["d_v"]
+
+            self.d_model = d_model
+
+        ### Never comes into play, as we dont actually use the real transformer decoder structure
+        # self.type_encoder = type_encoder
+        ###
+
         self.pos_ff = PosFeedForward_AddNorm(
                                         in_dim = in_dim, 
                                         out_dim = out_dim, 
@@ -57,19 +62,21 @@ class B_CoderModule(nn.Module):
                                     dropout = dropout
                                 )
 
-        if not type_encoder:
-            self.mta_masked = MultiHeadAttention_AddNorm(   
-                                                        N_heads = N_heads, 
-                                                        d_model = d_model, 
-                                                        d_k = d_k, 
-                                                        d_v = d_v, 
-                                                        dropout = dropout
-                                                        )
-
+        ### Never comes into play, as we dont actually use the real transformer decoder structure
+        # if not type_encoder:
+        #     self.mta_masked = MultiHeadAttention_AddNorm(   
+        #                                                 N_heads = N_heads, 
+        #                                                 d_model = d_model, 
+        #                                                 d_k = d_k, 
+        #                                                 d_v = d_v, 
+        #                                                 dropout = dropout
+        #                                                 )
+        ###
 
         # raise NotImplementedError(" Encoder/decoder module init not defined ")
 
-    def forward(self, q: Tensor, k: Tensor, v: Tensor, mask: Tensor = None, VA_k: Tensor = None, VA_v: Tensor = None) -> Tensor:
+    def forward(self, q: Tensor, k: Tensor, v: Tensor, sequence_mask: Tensor = None, attention_mask: Tensor = None)-> Tensor:
+        # VA_k: Tensor = None, VA_v: Tensor = None) -> Tensor:
         """
         Description:\\
         - Forward pass for either the encoder or decoder\\
@@ -82,19 +89,21 @@ class B_CoderModule(nn.Module):
             data (tensor): The data to be passed through\\
         """
 
-        if not self.type_encoder:
-            q = self.mta(q,k,v, mask)
-            k = VA_k
-            v = VA_v
-            q = q.masked_fill(mask,0) # preserve mask on future data 
-            
-        x = self.mta(q,k,v)
-        if mask is not None:
-            x = q.masked_fill(mask,0) # preserve mask on future data
+        ### Never comes into play, as we dont actually use the real transformer decoder structure
+        # if not self.type_encoder:
+        #     q = self.mta(q,k,v, mask)
+        #     k = VA_k
+        #     v = VA_v
+        #     q = q.masked_fill(mask,0) # preserve mask on future data 
+        ###
+
+        x = self.mta(q, k, v, attention_mask)
+        if sequence_mask is not None:
+            x = x.masked_fill(sequence_mask.unsqueeze(-1),0.) # preserve mask on future data
 
         x = self.pos_ff(x)
-        if mask is not None:
-            x = q.masked_fill(mask,0) # preserve mask on future data
+        if sequence_mask is not None:
+            x = x.masked_fill(sequence_mask.unsqueeze(-1),0.) # preserve mask on future data
 
         return x
 
@@ -136,7 +145,7 @@ if __name__ == "__main__":
     seq_len = c_dict["seq_len"]
 
 
-    mod = B_CoderModule(type_encoder = False, config = c_dict)
+    mod = B_CoderModule(type_encoder = False, model_config = c_dict)
 
     q = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model) * (-1)
     k = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)

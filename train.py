@@ -159,7 +159,12 @@ def main(args, configs):
                 mels, mel_lens, max_mel_len, pitches, energies, durations = batch
                 # Forward
                 # TODO: add explicit variable names for batch unpacking (*(batch[2:]))
-                output = model(*(batch[2:]))
+                output = model(
+                    speakers, 
+                    texts, text_lens, max_text_len, 
+                    mels, mel_lens, max_mel_len,
+                    pitches, energies, durations
+                )
 
                 ## Calculate Loss
                 losses = loss_handler.get_losses(batch, output)

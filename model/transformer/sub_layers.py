@@ -136,7 +136,7 @@ class MultiHeadAttention_AddNorm(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, q_in: Tensor, k: Tensor, v: Tensor, mask: Tensor = None) -> Tensor:
+    def forward(self, q_in: Tensor, k: Tensor, v: Tensor, attention_mask: Tensor = None) -> Tensor:
         """
         Description:
         - Takes q, k, v\\
@@ -181,9 +181,8 @@ class MultiHeadAttention_AddNorm(nn.Module):
         v = v.permute(2,0,1,3).contiguous().view(-1,seq_len_v, self.d_v)
 
         # multiply the mask, such that i can be applied to all at once
-        if mask is not None:
-            mask = mask.repeat(self.N_heads, 1, 1) # N_heads, 1, 1 as we do not want to duplicate the data in any way, and only repeat along a new dimension 
-        x  = self.scaled_dot_product_atten(q,k,v,mask = mask) # dims are now:  (N_heads * batch_size) x seq_len x d_v
+        multi_head_attention_mask = attention_mask.repeat(self.N_heads, 1, 1) # N_heads, 1, 1 as we do not want to duplicate the data in any way, and only repeat along a new dimension 
+        x  = self.scaled_dot_product_atten(q,k,v,mask = multi_head_attention_mask) # dims are now:  (N_heads * batch_size) x seq_len x d_v
 
         # we wanna split the N_hedas and batch size again now
         x = x.view(self.N_heads,batch_size, seq_len_q, self.d_v)
