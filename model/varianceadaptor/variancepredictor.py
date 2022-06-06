@@ -3,8 +3,8 @@ from torch import nn
 class VariancePredictor(nn.Module):
 
     def __init__(self, config):
-        super().__init__()
         
+        super(VariancePredictor, self).__init__()
         in_channels = config['transformer']['encoder']['hidden']
         out_channels = config['variance-predictor']['out-channels']
         kernel_size = config['variance-predictor']['kernel']
@@ -55,8 +55,8 @@ class VariancePredictor(nn.Module):
         x = self.block_2(x)
         # TODO: mask here? Probably requires a mask transformation
         x = self.lin(x)
-
-        x.squeeze(-1) # To get shape [B, L] from [B, L, 1]
+        
+        x = x.squeeze(-1) # To get shape [B, L] from [B, L, 1]
         x.masked_fill(mask, 0.0)
 
         return x 

@@ -114,7 +114,7 @@ def unit_test_forward_shape_B_CoderModule():
     seq_len = c_dict["seq_len"]
 
 
-    mod = B_CoderModule(type_encoder = False, model_config = c_dict)
+    mod = B_CoderModule(type = False, model_config = c_dict)
 
     q = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model) * (-1)
     k = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)

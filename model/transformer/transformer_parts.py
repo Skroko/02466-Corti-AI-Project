@@ -12,7 +12,7 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.positional_encoding = nn.Parameter(
-            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False # We don't want to tune these, but have this as a paramter for counting the number of paramters???????????? // Klaus
+            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']).unsqueeze(0), requires_grad=False # We don't want to tune these, but have this as a paramter for counting the number of paramters???????????? // Klaus
         )
 
         self.max_seq_len = model_config['max_seq_len']
@@ -21,14 +21,13 @@ class Encoder(nn.Module):
 
         n = model_config['transformer']['encoder']['layers']
 
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = True, model_config = model_config) for _ in range(n)])
+        self.layers = nn.ModuleList([B_CoderModule(type = 'encoder', model_config = model_config) for _ in range(n)])
 
     def forward(self, x: Tensor, sequence_mask: Tensor) -> Tensor:
         """
         x = Phoneme embedding of size [B, 𝕃, E]
         """
-        B = x.shape[0]
-        𝕃 = x.shape[1]
+        B, 𝕃 = x.shape[:2]
 
         # Generate multi head attention mask with shape [B, 𝕃, 𝕃] 
         attention_mask = sequence_mask.unsqueeze(1).expand(-1, 𝕃, -1)
@@ -43,7 +42,7 @@ class Encoder(nn.Module):
             
 
         for layer in self.layers:
-            x = layer(x,x,x, mask = sequence_mask, multi_head_mask = attention_mask) 
+            x = layer(x,x,x, sequence_mask = sequence_mask, attention_mask = attention_mask) 
 
         return x
 
@@ -55,14 +54,35 @@ class Decoder(nn.Module):
             pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False
         )
 
+        self.encoder_hidden = model_config['transformer']['encoder']['hidden']
+
+        self.max_seq_len = model_config['max_seq_len']
+
         n = model_config['transformer']['decoder']['layers']
 
-        self.layers = nn.ModuleList([B_CoderModule(type_encoder = False, model_config = model_config) for _ in range(n)])
+        self.layers = nn.ModuleList([B_CoderModule(type = 'decoder', model_config = model_config) for _ in range(n)])
 
-    def forward(self, x: Tensor, mask: Tensor, VA_k: Tensor, VA_v: Tensor) -> Tensor:
+    def forward(self, x: Tensor, frame_masks: Tensor) -> Tensor:
+
+        B, 𝕄 = x.shape[:2]
+
+        if not self.training and 𝕄 > self.max_seq_len:
+            attention_mask = frame_masks.unsqueeze(1).expand(-1, 𝕄, -1)
+            # Add positional encoding with shape [B, 𝕃, E]
+            x += pos_encoding(𝕄, self.encoder_hidden)[:𝕄].unsqueeze(0).expand(B, -1, -1).to(x.device)
+        else:
+            𝕄 = min(𝕄, self.max_seq_len)
+
+            attention_mask = frame_masks.unsqueeze(1).expand(-1, 𝕄, -1)
+
+            # Add positional encoding with shape [B, 𝕃, E]
+            x += self.positional_encoding[:, :𝕄].expand(B, -1, -1)
+            
+
         for layer in self.layers:
-            x = layer(x, x, x, mask=mask, VA_k =VA_k, VA_v = VA_v) # XD this is what ming024 does XD
+            x = layer(x,x,x, sequence_mask = frame_masks, attention_mask = attention_mask) 
 
+        return x
         return x
 
 def pos_encoding(max_seq_len:int, d_model:int, shift: bool = True) -> list: ## TODO: convert to nn.parameter??

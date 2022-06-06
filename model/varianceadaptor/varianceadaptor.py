@@ -15,6 +15,8 @@ class VarianceAdaptor(nn.Module):
         """
         Initializes the variance adapter using the given config. 
         """
+        super(VarianceAdaptor, self).__init__()
+
         # Define duration predictor
         self.duration = VariancePredictor(model_config) 
         self.length_regulator = LengthRegulator # A function
@@ -40,15 +42,14 @@ class VarianceAdaptor(nn.Module):
 
         ## Get bins and embeddings for pitch and energy 
         self.pitch_bins = self.get_bin(pitch_min, pitch_max, variance_config['pitch']['n_bins'], variance_config['pitch']['type'])
-        self.pitch_embedding = nn.Embedding(variance_config['pitch']['n_bins'], model_config['model']['encoder']['hidden'])
-        self.pitch_preprocess_type = preprocess_config['pitch']['feature'] # phoneme or frame
+        self.pitch_embedding = nn.Embedding(variance_config['pitch']['n_bins'], model_config['transformer']['encoder']['hidden'])
+        self.pitch_preprocess_type = preprocess_config['preprocessing']['pitch']['feature'] # phoneme or frame
 
         self.energy_bins = self.get_bin(energy_min, energy_max, variance_config['energy']['n_bins'], variance_config['energy']['type'])
-        self.energy_embedding = nn.Embedding(variance_config['energy']['n_bins'], model_config['model']['encoder']['hidden'])
-        self.energy_preprocess_type = preprocess_config['energy']['feature'] # phoneme or frame
+        self.energy_embedding = nn.Embedding(variance_config['energy']['n_bins'], model_config['transformer']['encoder']['hidden'])
+        self.energy_preprocess_type = preprocess_config['preprocessing']['energy']['feature'] # phoneme or frame
 
 
-        super().__init__()
         # setup embedding here based on config.
 
     

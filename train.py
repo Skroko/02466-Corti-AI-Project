@@ -13,13 +13,12 @@ from utils.tools import to_device, log, synth_one_sample
 from utils.optimizer import load_optimizer, save_optimizer
 from data.dataset import Dataset
 
-# Change these two
+from utils.logger import logger
 
 # from utils.evaluation import evaluate # I created a monster
 # from model import FastSpeech2Loss
 
 from model.loss import LossHandler
-from model.fastspeech2 import FastSpeech2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -65,8 +64,6 @@ def main(args, configs):
     vocoder = get_vocoder(model_config, device)
 
 
-    ## Initialize loggers
-    from utils.logger import logger
 
     # change load_path if one is wanted
     train_logger = logger(load_path = None)
@@ -290,6 +287,16 @@ def main(args, configs):
                     )
 
                 if step == total_step:
+                    torch.save(
+                        {
+                            "model": model.module.state_dict(),
+                            "optimizer": optimizer._optimizer.state_dict(),
+                        },
+                        os.path.join(
+                            train_config["path"]["ckpt_path"],
+                            "{}.pth.tar".format(step),
+                        ),
+                    )
                     quit()
 
                 step += 1

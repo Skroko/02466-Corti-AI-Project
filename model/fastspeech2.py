@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch import Tensor
 
-from transformer.transformer_parts import Encoder, Decoder, pos_encoding, PostNet
+from model.transformer.transformer_parts import Encoder, Decoder, pos_encoding, PostNet
 from utils.tools import get_mask_from_lengths
 
 from text.symbols import symbols # Just to get how many symbols we have
@@ -40,11 +40,21 @@ class FastSpeech2(nn.Module):
 
         mel_channels = preprocess_config['preprocessing']['mel']['n_mel_channels']
 
-        self.d_model = model_config["transformer"]["d_model"]
-        kernel_size = model_config["postnet"]["kernel_size"]
+        # final linear layer
 
         self.mel_lin = nn.Linear(in_features = model_config['transformer']['decoder']['hidden'], out_features = mel_channels) 
-        self.postnet = PostNet(self.d_model, kernel_size, mel_channels, n_conv_layers = 5, dropout = 0)
+
+        # postnet
+
+        self.d_model = model_config["transformer"]["decoder"]['hidden']
+
+        kernel_size = model_config["postnet"]["kernel_size"]
+
+        post_layers = model_config['postnet']['layers']
+
+        post_dropout = model_config['postnet']['dropout']
+
+        self.postnet = PostNet(self.d_model, kernel_size, mel_channels, n_conv_layers = post_layers, dropout = post_dropout)
 
     
     def forward(self, 
