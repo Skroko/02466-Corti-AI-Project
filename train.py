@@ -63,7 +63,8 @@ def main(args, configs):
     epsilon = train_config["optimizer"]["eps"]
     weight_decay = train_config["optimizer"]["weight_decay"]
 
-    optimizer = torch.optim.Adam(   params = model.parameters(),
+    optimizer = torch.optim.Adam(  
+                                    params = model.parameters(),
                                     lr = learning_rate,
                                     betas=betas,
                                     eps=epsilon,
@@ -71,9 +72,8 @@ def main(args, configs):
 
 
 
-    ## Initialize our own loss here.
-    loss_handler = LossHandler()
-        #Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
+    ## Initialize Loss Handler
+    loss_handler = LossHandler(preprocess_config['preprocessing'])
 
     ## Load vocoder
     vocoder = get_vocoder(model_config, device)
@@ -162,12 +162,20 @@ def main(args, configs):
                 output = model(
                     speakers, 
                     texts, text_lens, max_text_len, 
-                    mels, mel_lens, max_mel_len,
+                    mel_lens, max_mel_len,
                     pitches, energies, durations
                 )
 
-                ## Calculate Loss
-                losses = loss_handler.get_losses(batch, output)
+                mel_spectrogram_postnet, mel_spectrogram, log_duration, pitch, energy, sequence_masks, frame_masks, text_lens, mel_lens = output
+
+                # Calculate Losses
+                losses = loss_handler.get_losses(
+                    mels, mel_spectrogram, mel_spectrogram_postnet,
+                    durations, log_duration,
+                    pitches, pitch,
+                    energies, energy,
+                    sequence_masks, frame_masks,
+                    )
                 total_loss = sum(losses)
                 print(f"Total loss size: {total_loss}")
 

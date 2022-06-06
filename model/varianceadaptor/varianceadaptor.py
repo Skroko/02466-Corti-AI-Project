@@ -85,7 +85,7 @@ class VarianceAdaptor(nn.Module):
 
 
     def forward(self, hidden_phoneme_sequence: torch.Tensor, sequence_mask: torch.Tensor, frame_masks: torch.Tensor, targets: torch.Tensor, scales: int) -> 'tuple[tensor]':
-        
+
         """
         Arguments:
             hidden_phoneme_sequence: A Tensor of size [B, 𝕃, E] 
@@ -146,7 +146,7 @@ class VarianceAdaptor(nn.Module):
          
         else:
             # We don't multiply with scales['duration'], since this is expected to be incorperated into the target
-            x, _mel_lens, _pad_lens = self.length_regulator(x, targets['duration'])
+            x, mel_lens, _pad_lens = self.length_regulator(x, targets['duration'])
 
 
         ## get pitch embedding and perform skip layer
@@ -161,4 +161,4 @@ class VarianceAdaptor(nn.Module):
 
         variance_out = x
         # Also return the pitch and energy without embedding them, as we need these for optimization during training
-        return log_duration, pitch, energy, variance_out, frame_masks 
+        return log_duration, pitch, energy, variance_out, frame_masks, mel_lens 

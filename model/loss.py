@@ -3,7 +3,7 @@ from torch import Tensor
 
 class LossHandler():
 
-    def __init__(self) -> None:
+    def __init__(self, preprocess_config) -> None:
         """
         Initialize class with nothing (only call for other functions that defines their loss. \n
         Uses:\n
@@ -13,11 +13,15 @@ class LossHandler():
             Transformer loss (net_loss)\n
             PostNet loss (net_loss)\n
         """
-        pass
-        # add masks here?
-            # No cause the same loss use different mask depending on usecase
 
-    def masked_select(self, input_to_be_masked: Tensor, mask: Tensor) -> Tensor:
+        self.pitch_preprocess_type = preprocess_config["pitch"][
+            "feature"
+        ]
+        self.energy_preprocess_type = preprocess_config["energy"][
+            "feature"
+        ]
+
+    def masked_select(self, input: Tensor, mask: Tensor) -> Tensor:
         """
         Input:\n
             input_to_be_masked (Tensor): The input that will be masked\n
@@ -27,14 +31,12 @@ class LossHandler():
         Mask application:\n
             The mask removes all indexes (i) where mask[i] == False, and keeps indexes with mask[i] == True
         """
-        if mask is None:
-            return input_to_be_masked
 
-        masked_input = input_to_be_masked.masked_select(mask)
-        return masked_input
+        mask_selected_input = input.masked_select(mask)
+        return mask_selected_input
             
 
-    def VA_loss(self, predicted_values: Tensor, true_values: Tensor, mask: Tensor = None) -> Tensor:
+    def VA_loss(self, true_values: Tensor, predicted_values: Tensor, mask: Tensor = None) -> Tensor:
         """
         Used for the subparts of the variational encoder.\n
         Returns the MSE loss between the predicted values and the true values (as calculated in preprocessing)
@@ -44,7 +46,7 @@ class LossHandler():
         VA_loss = torch.nn.functional.mse_loss(self.masked_select(predicted_values, mask),self.masked_select(true_values, mask))
         return VA_loss
 
-    def net_loss(self, predicted_values: Tensor, true_values: Tensor, mask: Tensor = None) -> Tensor:
+    def net_loss(self, true_values: Tensor, predicted_values: Tensor, mask: Tensor = None) -> Tensor:
         """
         Used for transformer loss and postnet loss\n
         Returns the MAE loss between the predicted values and the true values (as calculated in preprocessing)
@@ -54,29 +56,52 @@ class LossHandler():
 
 
     def get_losses(self,    
-                    VA_predicted_vals: Tensor, VA_targets: Tensor,
-                    transformer_mel_predictions: Tensor, postnet_mel_predictions: Tensor, mel_targets: Tensor,
-                    mel_masks: Tensor, src_masks: Tensor,
+                    mels, mel_spectrogram, mel_spectrogram_postnet,
+                    durations, log_duration,
+                    pitches, pitch,
+                    energies, energy,
+                    sequence_masks, frame_masks,
                     ):
         """
-        Finds the losses for all the supproblems to optimize.\n
+        Finds the losses for all the subproblems to optimize.\n
 
         TODO: Is it a problem that postnet_mel_predictions most likely will have autograd leakage into the remaining network, and if so fix it. (make a shallow copy of the values, and re-enable requires grad)
-        TODO: make the loss computed in parallel?
         """
 
-        assert len(VA_predicted_vals) == len(VA_targets) ,"the number of VA_predicted values and targets mismatch"
-        assert transformer_mel_predictions.shape == mel_targets.shape ,"dimension mismatch between predicted value and target"
-        assert postnet_mel_predictions.shape == mel_targets.shape ,"dimension mismatch between predicted value and target"
+        assert mel_spectrogram.shape == mels.shape ,"dimension mismatch between predicted value and target"
+        assert mel_spectrogram_postnet.shape == mels.shape ,"dimension mismatch between predicted value and target"
 
-        VA_computed_losses = []
-        for predicted, loss, mask in zip(VA_predicted_vals, VA_targets, [mel_masks,src_masks,src_masks]):
-            VA_computed_losses.append(self.VA_loss(predicted,loss,mask))
+        # Invert masks such that we can select the non-masked values.
+        sequence_masks, frame_masks = ~sequence_masks, ~frame_masks
 
-        transformer_mel_loss = self.net_loss(transformer_mel_predictions,mel_targets,mel_masks)
-        postnet_mel_loss = self.net_loss(postnet_mel_predictions,mel_targets,mel_masks)
+        mels.requires_grad = False
+        durations.requires_grad = False
+        pitches.requires_grad = False
+        energies.requires_grad = False
 
-        return VA_computed_losses, transformer_mel_loss, postnet_mel_loss
+
+        # Variance Adaptor Loss
+
+        duration_loss = self.VA_loss(log_duration, torch.log(durations.float()), sequence_masks) # TODO: Check up and if we need + 1, and sequence_masks.unsqueeze(-1)
+
+        if self.pitch_preprocess_type == 'phoneme_level':
+            pitch_loss = self.VA_loss(pitches, pitch, sequence_masks)
+        else:
+            pitch_loss = self.VA_loss(pitches, pitch, frame_masks)
+
+
+        if self.energy_preprocess_type == 'phoneme_level':
+
+            energy_loss = self.VA_loss(energies, energy, sequence_masks)
+        else:
+            energy_loss = self.VA_loss(energies, energy, frame_masks)
+        
+
+        # FastSpeech2 and FastSpeech2 + Postnet loss
+        transformer_mel_loss = self.net_loss(mels, mel_spectrogram, frame_masks)
+        postnet_mel_loss = self.net_loss(mels, mel_spectrogram_postnet, frame_masks)
+
+        return duration_loss, pitch_loss, energy_loss, transformer_mel_loss, postnet_mel_loss 
 
 
 
@@ -96,4 +121,4 @@ if __name__ == "__main__":
 
     print(loss_clas.VA_loss(x,y,mask))
     print(loss_clas.VA_loss(x,y,None))
-    # print(loss_clas.net_loss(x,y,mask))
+ 

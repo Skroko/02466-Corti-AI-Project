@@ -52,7 +52,6 @@ class FastSpeech2(nn.Module):
     texts,
     text_lens,
     max_text_len,
-    mels = None,
     mel_lens = None,
     max_mel_len = None,
     pitches = None,
@@ -81,30 +80,23 @@ class FastSpeech2(nn.Module):
         texts = self.phoneme_embedding(texts)
 
 
-        # TODO: Move pos encoding under encoder decoder, generate head mask and pass through to multi head self attention.
-        # TODO: Load optimizer
-        # Generate positional encoding
-        texts += self.encoder_positional_encoding[:, :max_text_len, :].expand(texts.shape[0], -1, -1) # Expand to match the shape of text.
-
         # Pass through encoder
         encoder_out = self.encoder(texts, sequence_masks)
 
         # Pass through VA
-        log_duration, pitch, energy, vae_out, frame_masks = self.va.forward(encoder_out, sequence_masks, frame_masks, {'duration': durations, 'pitch': pitches, 'energy': energies},) #self.VA.forward(encoder_out, mel_masks)
-
-        # Positional encoding
-        vae_out += self.decoder_positional_encoding[:, :]
+            # mel_lens is only 'redefined' for inference, since it will be none before the variance adaptor pass through.
+        log_duration, pitch, energy, vae_out, frame_masks, mel_lens = self.va.forward(encoder_out, sequence_masks, frame_masks, {'duration': durations, 'pitch': pitches, 'energy': energies}, {'duration': duration_scale, 'pitch': pitch_scale, 'energy': energy_scale}) 
 
         # Pass through decoder
         decoder_out = self.decoder(vae_out, frame_masks)
 
         # Lin layer to mel dims # I virkeligheden slutningen af Decoder? // Klaus
-        mel_lin_out = self.mel_lin.forward(decoder_out)
+        mel_spectrogram = self.mel_lin.forward(decoder_out)
 
         # Pass through postnet
-        mel = self.postnet.forward(mel_lin_out) + mel_lin_out
+        mel_spectrogram_postnet = self.postnet.forward(mel_spectrogram) + mel_spectrogram
 
-        return mel
+        return mel_spectrogram_postnet, mel_spectrogram, log_duration, pitch, energy, sequence_masks, frame_masks, text_lens, mel_lens
 
 if __name__ == "__main__":
     import yaml
