@@ -7,6 +7,8 @@ import yaml
 import os
 import json
 
+from utils.mask_embedding import get_mask_from_lengths
+
 class VarianceAdaptor(nn.Module):
 
     def __init__(self, model_config: dict, preprocess_config: dict) -> None:
@@ -59,7 +61,7 @@ class VarianceAdaptor(nn.Module):
         """
         if type == 'log':
             return nn.Parameter(torch.linspace(low.log(), high.log(), n).exp(), requires_grad=False)
-        else: # potentially add more types?
+        else: # In this case type == 'linear' // potentially add more types? Klaus
             return nn.Parameter(torch.linspace(low, high, n), requires_grad=False)
     
 
@@ -136,12 +138,15 @@ class VarianceAdaptor(nn.Module):
 
         ## length regulation
         if targets['duration'] is None:
-            x = self.length_regulator(x, rounded_duration) 
+            x, mel_lens, _pad_lens = self.length_regulator(x, rounded_duration) 
+            # Generate the frame_masks from the predicted lengths.
+            frame_masks = get_mask_from_lengths(mel_lens)
+
          
         else:
             # We don't multiply with scales['duration'], since this is expected to be incorperated into the target
-            x = self.length_regulator(x, targets['duration'])
-            # They do something with a max_len here and redefine the mel_mask
+            x, _mel_lens, _pad_lens = self.length_regulator(x, targets['duration'])
+
 
         ## get pitch embedding and perform skip layer
         if self.pitch_preprocess_type == 'frame_level':
