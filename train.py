@@ -178,7 +178,7 @@ def main(args, configs):
                     nn.utils.clip_grad_norm_(model.parameters(), grad_clip_thresh)
 
                     ## Update weights
-                    optimizer.step_and_update_lr()
+                    optimizer.step()
                     optimizer.zero_grad()
 
                 # Rewrite this section to log and produce graphs as we want

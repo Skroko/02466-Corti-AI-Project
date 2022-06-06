@@ -51,7 +51,7 @@ class Decoder(nn.Module):
         super().__init__()
 
         self.positional_encoding = nn.Parameter(
-            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']), requires_grad=False
+            pos_encoding(model_config['max_seq_len'], model_config['transformer']['encoder']['hidden']).unsqueeze(0), requires_grad=False
         )
 
         self.encoder_hidden = model_config['transformer']['encoder']['hidden']

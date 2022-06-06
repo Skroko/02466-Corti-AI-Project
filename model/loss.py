@@ -98,8 +98,8 @@ class LossHandler():
         
 
         # FastSpeech2 and FastSpeech2 + Postnet loss
-        transformer_mel_loss = self.net_loss(mels, mel_spectrogram, frame_masks)
-        postnet_mel_loss = self.net_loss(mels, mel_spectrogram_postnet, frame_masks)
+        transformer_mel_loss = self.net_loss(mels, mel_spectrogram, frame_masks.unsqueeze(-1))
+        postnet_mel_loss = self.net_loss(mels, mel_spectrogram_postnet, frame_masks.unsqueeze(-1))
 
         return duration_loss, pitch_loss, energy_loss, transformer_mel_loss, postnet_mel_loss 
 
