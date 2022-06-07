@@ -36,6 +36,10 @@ class logger:
     def __call__(self, data_to_be_logged: list) -> None:
         self.log_data(data_to_be_logged = data_to_be_logged)
 
+
+
+
+
 if __name__ == "__main__":
     logs = logger()
 

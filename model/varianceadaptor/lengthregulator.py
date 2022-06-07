@@ -49,7 +49,7 @@ def LengthRegulator(data, lengths, max_length = None, pad=True):
     for i, (element, length) in enumerate(zip(data, lengths)):
         expanded_sequence = []
         for idx, l in enumerate(length):
-            expanded_sequence.extend([element[idx].clone() for _ in range(l[0])])
+            expanded_sequence.extend([element[idx].clone() for _ in range(l.item())])
         _t = torch.stack(expanded_sequence)
 
         if pad:

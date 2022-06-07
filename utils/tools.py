@@ -96,8 +96,6 @@ def get_mask_from_lengths(lengths, max_len=None):
         max_len = torch.max(lengths).item()
 
     ids = torch.arange(0, max_len).unsqueeze(0).expand(batch_size, -1).to(device)
-    print(ids.shape)
-    print(lengths.unsqueeze(1).expand(-1, max_len).shape)
     mask = ids >= lengths.unsqueeze(1).expand(-1, max_len)
 
     return mask
@@ -109,14 +107,14 @@ def expand(values, durations):
         out += [value] * max(0, int(d))
     return np.array(out)
 
-
+# Rewritten
 def synth_one_sample(targets, predictions, vocoder, model_config, preprocess_config):
 
     basename = targets[0][0]
-    src_len = predictions[8][0].item()
-    mel_len = predictions[9][0].item()
+    src_len = predictions[7][0].item()
+    mel_len = predictions[8][0].item()
     mel_target = targets[6][0, :mel_len].detach().transpose(0, 1)
-    mel_prediction = predictions[1][0, :mel_len].detach().transpose(0, 1)
+    mel_prediction = predictions[0][0, :mel_len].detach().transpose(0, 1)
     duration = targets[11][0, :src_len].detach().cpu().numpy()
     if preprocess_config["preprocessing"]["pitch"]["feature"] == "phoneme_level":
         pitch = targets[9][0, :src_len].detach().cpu().numpy()
@@ -213,6 +211,22 @@ def synth_samples(targets, predictions, vocoder, model_config, preprocess_config
     for wav, basename in zip(wav_predictions, basenames):
         wavfile.write(os.path.join(path, "{}.wav".format(basename)), sampling_rate, wav)
 
+
+def save_audio(title, wav_prediction, path, sample_rate = 44100):
+    """
+    Takes in a list of titles and wav_predictions, as well as their sampling rate
+    and a path to save to.
+
+    The functions creates the path if it doesn't exist.
+    """
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+    print(sample_rate)
+    print(wav_prediction) 
+    for wav, basename in zip(wav_prediction, title):
+        wavfile.write(os.path.join(path, "{}.wav".format(basename)), sample_rate, wav)
+        print(os.path.join(path, "{}.wav".format(basename)))
 
 def plot_mel(data, stats, titles):
     fig, axes = plt.subplots(len(data), 1, squeeze=False)

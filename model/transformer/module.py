@@ -11,7 +11,7 @@ from .sub_layers import PosFeedForward_AddNorm, MultiHeadAttention_AddNorm
 
 
 class B_CoderModule(nn.Module):
-    def __init__(self, type_encoder: bool, model_config: dict) -> None:
+    def __init__(self, type: str, model_config: dict) -> None:
         """
         De/En - coder module \\
         Defines the layers of both the decoder and the encoder \\
@@ -25,26 +25,38 @@ class B_CoderModule(nn.Module):
         super().__init__()
 
 
-        if type_encoder or not type_encoder:
 
-            in_dim = model_config["d_model"]
-            out_dim = model_config["d_model"]
-            hidden_dim = model_config["hidden_dim"]
-            act_fnc = nn.ReLU if model_config["act_fnc"] == "nn.ReLU" else "raise_error"
-            if act_fnc == "raise_error":
-                raise exception(f"B_CoderModule does not recognize act_fnc value")
-            dropout = model_config["dropout"]
+        in_dim = model_config['transformer'][type]["hidden"] 
 
-            N_heads = model_config["N_heads"]
-            d_model = model_config["d_model"]
-            d_k = model_config["d_k"]
-            d_v = model_config["d_v"]
+        
+        
+        out_dim = in_dim # They are the same in our case. 
 
-            self.d_model = d_model
+        hidden_dim = model_config['transformer'][type]['conv_filter_size']
+
+        act_fnc = nn.ReLU if model_config['transformer'][type]["activation"] == "ReLU" else "raise_error"
+        if act_fnc == "raise_error":
+            raise exception(f"B_CoderModule does not recognize act_fnc value")
+        
+        dropout = model_config['transformer'][type]["dropout"]
+
+        N_heads = model_config['transformer'][type]['heads']
+        d_model = model_config['transformer'][type]['hidden']
+        d_v = d_k = model_config["d_k"] = model_config['transformer'][type]['hidden'] // model_config['transformer'][type]['heads']
+        
+
+        self.d_model = d_model
 
         ### Never comes into play, as we dont actually use the real transformer decoder structure
         # self.type_encoder = type_encoder
         ###
+        self.mta = MultiHeadAttention_AddNorm(   
+                                    N_heads = N_heads, 
+                                    d_model = d_model, 
+                                    d_k = d_k, 
+                                    d_v = d_v, 
+                                    dropout = dropout
+                                )
 
         self.pos_ff = PosFeedForward_AddNorm(
                                         in_dim = in_dim, 
@@ -54,13 +66,6 @@ class B_CoderModule(nn.Module):
                                         dropout = dropout
                                         )
 
-        self.mta = MultiHeadAttention_AddNorm(   
-                                    N_heads = N_heads, 
-                                    d_model = d_model, 
-                                    d_k = d_k, 
-                                    d_v = d_v, 
-                                    dropout = dropout
-                                )
 
         ### Never comes into play, as we dont actually use the real transformer decoder structure
         # if not type_encoder:
@@ -145,7 +150,7 @@ if __name__ == "__main__":
     seq_len = c_dict["seq_len"]
 
 
-    mod = B_CoderModule(type_encoder = False, model_config = c_dict)
+    mod = B_CoderModule(type = False, model_config = c_dict)
 
     q = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model) * (-1)
     k = torch.arange(batch_size*seq_len*d_model, dtype=torch.float).view(batch_size,seq_len,d_model)
