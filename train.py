@@ -30,6 +30,7 @@ def main(args, configs):
     preprocess_config, model_config, train_config = configs
 
     # Create paths
+    print("Verifying paths")
     for path in train_config['path'].values():
         print(path)
         if not os.path.exists(path):
