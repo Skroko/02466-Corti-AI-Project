@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 # write our own functionality for the get_model
 from utils.model import get_model, get_vocoder, get_param_num
-from utils.tools import to_device, log, synth_one_sample
+from utils.tools import save_audio, to_device, log, synth_one_sample
 from utils.optimizer import load_optimizer, save_optimizer
 from data.dataset import Dataset
 
@@ -28,6 +28,13 @@ def main(args, configs):
 
     #### C
     preprocess_config, model_config, train_config = configs
+
+    # Create paths
+    for path in train_config['path'].values():
+        print(path)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
 
     # Get dataset
     dataset = Dataset(
@@ -188,7 +195,7 @@ def main(args, configs):
 
 
                     train_logger.log_data(losses) # TODO ensure that losses is a 1d list (i assume it is from the above implementation)
-
+                    train_logger.save_log_as_csv(headers = ['duration', 'pitch', 'energy', 'mel', 'postnet mel'], save_path = "./logged_data/train.csv")
                     outer_bar.write(f"Total loss of train step {step}:\n{total_loss}")
 
                     # message1 = "Step {}/{}, ".format(step, total_step)
@@ -213,26 +220,7 @@ def main(args, configs):
                         model_config,
                         preprocess_config,
                     )
-                    log(
-                        train_logger,
-                        fig=fig,
-                        tag="Training/step_{}_{}".format(step, tag),
-                    )
-                    sampling_rate = preprocess_config["preprocessing"]["audio"][
-                        "sampling_rate"
-                    ]
-                    log(
-                        train_logger,
-                        audio=wav_reconstruction,
-                        sampling_rate=sampling_rate,
-                        tag="Training/step_{}_{}_reconstructed".format(step, tag),
-                    )
-                    log(
-                        train_logger,
-                        audio=wav_prediction,
-                        sampling_rate=sampling_rate,
-                        tag="Training/step_{}_{}_synthesized".format(step, tag),
-                    )
+                    save_audio([tag + 'reconstruction', tag], [wav_reconstruction, wav_prediction], train_config['path']['result_path'], preprocess_config['preprocessing']['audio']['sampling_rate'] )
 
 
                 # Write a loss loop for validation data 
@@ -245,24 +233,43 @@ def main(args, configs):
                     loader = DataLoader(dataset,batch_size=batch_size,shuffle=False,collate_fn=dataset.collate_fn,)
 
                     # loss
-                    loss_sums = [0 for _ in range(6)]
+                    loss_sums = [0 for _ in range(5)]
                     for batchs in loader:
                         for batch in batchs:
                             batch = to_device(batch, device)
                             with torch.no_grad():
                                 # Forward
-                                output = model(*(batch[2:])) # TODO Use same unpacking as in above
+                                ids, raw_texts, speakers, texts, text_lens, max_text_len,\
+                                mels, mel_lens, max_mel_len, pitches, energies, durations = batch
+                                
+                                
+                                output = model(
+                                                speakers, 
+                                                texts, text_lens, max_text_len, 
+                                                mel_lens, max_mel_len,
+                                                pitches, energies, durations
+                                            )
 
-                                # Cal Loss
-                                losses = loss_handler.get_losses(batch, output)
+                                mel_spectrogram_postnet, mel_spectrogram, log_duration, pitch, energy, sequence_masks, frame_masks, text_lens, mel_lens = output
+
+                                            # Calculate Losses
+                                losses = loss_handler.get_losses(
+                                                mels, mel_spectrogram, mel_spectrogram_postnet,
+                                                durations, log_duration,
+                                                pitches, pitch,
+                                                energies, energy,
+                                                sequence_masks, frame_masks,
+                                                )
 
                                 for i in range(len(losses)):
                                     loss_sums[i] += losses[i].item() * len(batch[0])
-
+                    print(loss_sums)
                     loss_means = [loss_sum / len(dataset) for loss_sum in loss_sums]
 
                     validation_logger.log_data(loss_means)
+                    validation_logger.save_log_as_csv(headers = ['duration', 'pitch', 'energy', 'mel', 'postnet mel'], save_path = "./logged_data/validation.csv")
 
+                    outer_bar.write(f"Total loss of train step {step}:\n{total_loss}")
                     # Remove?? (andreas), replace with model(data) -> loss(out,target) -> log
                     # message = evaluate(model, step, configs, val_logger, vocoder)
                     # with open(os.path.join(val_log_path, "log.txt"), "a") as f:
@@ -277,8 +284,8 @@ def main(args, configs):
                 if step % save_step == 0:
                     torch.save(
                         {
-                            "model": model.module.state_dict(),
-                            "optimizer": optimizer._optimizer.state_dict(),
+                            "model": model.state_dict(),
+                            "optimizer": optimizer.state_dict(),
                         },
                         os.path.join(
                             train_config["path"]["ckpt_path"],
@@ -289,8 +296,8 @@ def main(args, configs):
                 if step == total_step:
                     torch.save(
                         {
-                            "model": model.module.state_dict(),
-                            "optimizer": optimizer._optimizer.state_dict(),
+                            "model": model.state_dict(),
+                            "optimizer": optimizer.state_dict(),
                         },
                         os.path.join(
                             train_config["path"]["ckpt_path"],
