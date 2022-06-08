@@ -23,6 +23,7 @@ def get_model(args, configs, device, train=False):
 
         ckpt = torch.load(ckpt_path)
         model.load_state_dict(ckpt["model"])
+        print(f"Model checkpoint loaded at step {args.restore_step}")
 
     if train:
         optimizer = torch.optim.Adam(   params = model.parameters(),
@@ -34,6 +35,7 @@ def get_model(args, configs, device, train=False):
 
         if args.restore_step:
             optimizer.load_state_dict(ckpt["optimizer"])
+            print(f"Optimizer checkpoint loaded at step {args.restore_step}")
             
         model.train()
         return model, optimizer
