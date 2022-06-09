@@ -42,7 +42,7 @@ def main(args, configs):
         "train.txt", preprocess_config, train_config, sort=True, drop_last=True
     )
     batch_size = train_config["optimizer"]["batch_size"]
-    group_size = 4  # Set this larger than 1 to enable sorting in Dataset
+    group_size = 1  # Set this larger than 1 to enable sorting in Dataset
     assert batch_size * group_size < len(dataset)
     loader = DataLoader(
         dataset,
@@ -118,7 +118,6 @@ def main(args, configs):
         for batchs in loader:
             for batch in batchs:
                 batch = to_device(batch, device)
-
                 """
                 id = The ID of the data point in the dataset
                 
