@@ -1,7 +1,6 @@
 ## Imports
 from torch import Tensor, long, softmax
 from torch import nn
-from torch import inf
 import numpy as np
 import torch
 
