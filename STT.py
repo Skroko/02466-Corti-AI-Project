@@ -15,22 +15,11 @@ matplotlib.rcParams["figure.figsize"] = [16.0, 4.8]
 torch.random.manual_seed(0)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #%%
-print(torch.__version__)
-print(torchaudio.__version__)
-print(device)
-#%%
-SPEECH_FILE = "./audio_data/The_fish_continued.wav"
-#%%
 bundle = torchaudio.pipelines.WAV2VEC2_ASR_BASE_960H
-
-print("Sample Rate:", bundle.sample_rate)
-
-print("Labels:", bundle.get_labels())
-
-#%%
 model = bundle.get_model().to(device)
 
 #%%
+SPEECH_FILE = "./audio_data/The_fish_slapped_your_whale_mom_to_the_ground_The_fish_slapped_your_whale_mom_to_the_ground_The_fis.wav"
 waveform, sample_rate = torchaudio.load(SPEECH_FILE)
 waveform = waveform.to(device)
 
