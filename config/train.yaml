@@ -6,7 +6,7 @@ path:
   result_path: "./output/result/LJSpeech"
 optimizer:
   ini_learningrate: 0.001
-  batch_size: 48 # 16
+  batch_size: 16
   betas: [0.9, 0.98]
   eps: 0.000000001
   weight_decay: 0.0
