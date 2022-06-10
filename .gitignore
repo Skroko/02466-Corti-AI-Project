@@ -131,3 +131,4 @@ wavenet_vocoder-0.1.1/*
 wavenet_vocoder-master/*
 tst.py
 audio_data/*
+SST/data/*
