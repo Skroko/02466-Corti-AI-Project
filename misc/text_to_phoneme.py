@@ -10,10 +10,10 @@ from torch.utils.data import DataLoader
 from g2p_en import G2p
 from pypinyin import pinyin, Style
 
-from utils.model import get_model, get_vocoder
-from utils.tools import to_device, synth_samples
-from dataset import TextDataset
-from text import text_to_sequence
+#from utils.model import get_model, get_vocoder
+#from utils.tools import to_device, synth_samples
+#from dataset import TextDataset
+#from text import text_to_sequence
 from collections import defaultdict
 import nltk.data
 
@@ -60,13 +60,12 @@ def preprocess_english(text):
     #return np.array(sequence)
     return phones, text
 
-#%%
-preprocess_english("this is a test ? . ?")[0]
+
 # %%
 
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle',encoding="utf-8")
-fp = open("turing2.txt",encoding="utf-8")
+fp = open("VCTK.txt",encoding="utf-8")
 data = fp.read()
 
 # %%
@@ -101,7 +100,7 @@ for number, sentence in enumerate(short_test):
 
 # %%
 #Notice that it just continues writing if file already exists. its a feature, not a bug, definitely
-with open('turing_phoneme.txt', 'a') as f:
+with open('VCTK_phoneme.txt', 'a') as f:
     for key, value in df.items():
         f.write(str(key)+value)
         f.write('\n')
