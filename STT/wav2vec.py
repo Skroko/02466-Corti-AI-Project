@@ -1,5 +1,6 @@
 # https://pytorch.org/tutorials/intermediate/speech_recognition_pipeline_tutorial.html
 #%%
+from calendar import c
 import os
 import IPython
 import matplotlib
@@ -15,7 +16,9 @@ import nltk.data
 #vctk = torchaudio.datasets.CMUARCTIC(root = "data", download = True) 
 
 TEXTFILE = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\target.txt'
-AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\Fastspeech2'
+AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\ARCTIC\\renamed'
+#^above is original audio. below is fastspech2 generated:
+#AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\Fastspeech2'
 
 arctic = STTDataset(TEXTFILE,AUDIO_DIRECTORY)
 
@@ -74,31 +77,44 @@ transformation = jiwer.Compose([
     jiwer.ToLowerCase(),
     jiwer.RemovePunctuation(),
     jiwer.ToLowerCase(),
+    jiwer.ExpandCommonEnglishContractions(),
+    jiwer.Strip(),
     #jiwer.RemoveWhiteSpace(replace_by_space=True),
     #jiwer.RemoveMultipleSpaces(),
     #jiwer.ReduceToListOfListOfWords(word_delimiter=" ")
 ])
 
-#jiwer.wer(
-#    ground_truth,
-#    hypothesis,
-#    truth_transform=transformation,
-#    hypothesis_transform=transformation
-#)
+
+
+# jiwer.wer(
+#     ground_truth,
+#     hypothesis,
+#     truth_transform=transformation,
+#     hypothesis_transform=transformation
+# )
 
 #%%
 hypothesis = [text.replace("|"," ") for text in out_text]
 ground_truth = arctic.text.values.tolist()
 
+#%%
 hypothesis = transformation(hypothesis)
 ground_truth = transformation(ground_truth)
 
 
 #%%
 def word_error(ground_truth, hypothesis):
-    return(wer(ground_truth, hypothesis))
+    return(wer(ground_truth, hypothesis, ))
+
 
 print(word_error(ground_truth, hypothesis))
+
+#%%
+
+# cummulative_error = 0
+# for i in range(len(ground_truth)):
+#     cummulative_error += word_error(ground_truth[i],hypothesis[i])
+# print(cummulative_error/len(ground_truth))
 
 
 
