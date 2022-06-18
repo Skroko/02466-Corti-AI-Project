@@ -183,7 +183,6 @@ if __name__ == "__main__":
             texts = np.array([preprocess_mandarin(args.text, preprocess_config)])
         text_lens = np.array([len(texts[0])])
         batchs = [(ids, raw_texts, speakers, texts, text_lens, max(text_lens))]
-    print(texts)
     control_values = args.pitch_control, args.energy_control, args.duration_control
 
     synthesize(model, args.restore_step, configs, vocoder, batchs, control_values)
