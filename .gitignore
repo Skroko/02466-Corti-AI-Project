@@ -132,3 +132,21 @@ wavenet_vocoder-master/*
 tst.py
 audio_data/*
 SST/data/*
+*.npy
+*.TextGrid
+*.tar
+*.wav
+*.png
+preprocessed_data/AISHELL3/val.txt
+preprocessed_data/AISHELL3/speakers.json
+preprocessed_data/AISHELL3/train.txt
+preprocessed_data/AISHELL3/stats.json
+preprocessed_data/LibriTTS/speakers.json
+preprocessed_data/LibriTTS/train.txt
+preprocessed_data/LibriTTS/val.txt
+preprocessed_data/LJSpeech/speakers.json
+preprocessed_data/LJSpeech/train.txt
+preprocessed_data/LJSpeech/val - orginal.txt
+preprocessed_data/LJSpeech/stats.json
+preprocessed_data/LibriTTS/stats.json
+preprocessed_data/LJSpeech/val.txt
