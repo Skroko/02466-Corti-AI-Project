@@ -12,15 +12,45 @@ from jiwer import wer
 from create_torchaudio_dataset import STTDataset
 import nltk.data
 
+from datasets import load_dataset, load_metric, Audio, load_from_disk
 #%%
 #vctk = torchaudio.datasets.CMUARCTIC(root = "data", download = True) 
 
 TEXTFILE = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\target.txt'
-AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\ARCTIC\\renamed'
+#AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\ARCTIC\\renamed'
 #^above is original audio. below is fastspech2 generated:
-#AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\Fastspeech2'
+AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\Fastspeech2'
+#AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\Our900k'
+#AUDIO_DIRECTORY = 'c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\fastspeech100k'
+
 
 arctic = STTDataset(TEXTFILE,AUDIO_DIRECTORY)
+
+#%%
+#import pandas as pd
+#df = pd.read_csv("target.txt", sep="/n", header = None)[0]
+
+#df.to_csv("mydata.csv")
+#%%
+#dataset = load_dataset('data', data_files='target.txt')
+#dataset = load_dataset('data', data_files='mydata.csv')
+#%%
+
+#%%
+#
+dataset = load_dataset("lj_speech")
+#%%
+dataset = dataset['train']
+dataset = dataset.train_test_split(test_size=0.2)
+#%%
+dataset.save_to_disk('local_lj_speech')
+#%%
+dataset = load_from_disk('local_lj_speech')
+
+
+#%%
+#%%
+dataset = dataset.cast_column("c:\\Users\\rune7\\Documents\\GitHub\\wav2vec\\data\\Fastspeech2", Audio())
 
 
 #%%

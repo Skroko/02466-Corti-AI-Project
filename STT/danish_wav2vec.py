@@ -107,11 +107,12 @@ print(word_error(ground_truth, hypothesis))
 # %%
 ######## Dividing up based on length #####
 indexes = []
+
 t=0
 while t <= 100:
     if t == 100:
         temp_index = [i for i, x in enumerate(ground_truth) if (len(x) <= t+10000 and len(x) > t)]
-        indexes.append([temp_index,t])    
+        indexes.append([temp_index,t])
     else:
         temp_index = [i for i, x in enumerate(ground_truth) if (len(x) <= t+5 and len(x) > t)]
         indexes.append([temp_index,t])
@@ -123,6 +124,11 @@ hypotheses = []
 for index in indexes:
     truths.append([ground_truth[i] for i in index[0]])
     hypotheses.append([hypothesis[i] for i in index[0]])
+#%%
+#### Getting histogram of distribution ####
+count = []
+for i in range(len(indexes)):
+    count.append(len(indexes[i][0]))
 
 #%%
 #### Calculating word error for each segment ####
@@ -137,7 +143,8 @@ sentence_max_length = [indexes[i][1] for i in range(len(indexes))]
 # %%
 ### Creating dataframe and saving to csv ##
 data = {'Sentence length': sentence_max_length,
-        'Word Error Rate': errors}
+        'Word Error Rate': errors,
+        'Distribution': count}
 df = pd.DataFrame(data)
 print(df)
 
